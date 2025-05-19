@@ -62,10 +62,6 @@ namespace fastq {
 
   namespace detail {
 
-    static std::atomic<size_t> c0__ = 0;
-    static std::atomic<size_t> c1__ = 0;
-
-
     // asynchronous wrapper around `zlib::gzread`
     // as such, accepts uncompressed files too
     template <
