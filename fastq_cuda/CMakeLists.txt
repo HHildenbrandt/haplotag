@@ -1,0 +1,14 @@
+cmake_minimum_required(VERSION 3.25.2 FATAL_ERROR)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 20)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_ARCHITECTURES native)
+project(cucm LANGUAGES CXX CUDA)
+find_package(CUDAToolkit REQUIRED)
+
+add_executable(fastq_cu main.cu)
+target_link_libraries(fastq_cu CUDA::cudart_static zlibstatic)
+set_target_properties(fastq_cu PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin$<0:>)
+target_include_directories(fastq_cu PRIVATE ${CMAKE_SOURCE_DIR})
