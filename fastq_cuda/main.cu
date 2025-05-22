@@ -26,7 +26,7 @@ namespace cu {
   };
 
 
-  using reader_t = fastq::detail::reader_t<chunk_allocator<char>, 64 * 1024 * 1024>;
+  using reader_t = fastq::detail::reader_t<chunk_allocator<char>, 16 * 1024, 64 * 1024 * 1024>;
   //using reader_t = fastq::reader_t;
 
 }

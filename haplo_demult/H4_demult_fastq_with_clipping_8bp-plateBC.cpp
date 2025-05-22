@@ -294,15 +294,15 @@ int main (int argc, char* argv[])
   string path_to_reads= (argc < 2) ? "../data/" : argv[1];
   string path_output = (argc < 2) ? "../data/" : argv[2];
                             
-  string R1_file=path_to_reads+"test_H4_R1_001.fastq.gz";
-  string R2_file=path_to_reads+"test_H4_R4_001.fastq.gz";
+  string R1_file=path_to_reads+"_gen_test_H4_R1_001.fastq.gz";
+  string R2_file=path_to_reads+"_gen_test_H4_R4_001.fastq.gz";
   // string R3_file=path_to_reads+"test_H4_R3_001.fastq.gz";   // ??? doesn't exist
-  string R3_file=path_to_reads+"test_R3_001.fastq.gz"; 
-  string I1_file=path_to_reads+"test_H4_I1_001.fastq.gz";
-  string I2_file=path_to_reads+"test_H4_R2_001.fastq.gz"; 
+  string R3_file=path_to_reads+"_gen_test_R3_001.fastq.gz"; 
+  string I1_file=path_to_reads+"_gen_test_H4_I1_001.fastq.gz";
+  string I2_file=path_to_reads+"_gen_test_H4_R2_001.fastq.gz"; 
 
-  string R1_outfile=path_output+"_R1_001.fastq.gz";
-  string R2_outfile=path_output+"_R2_001.fastq.gz";
+  string R1_outfile=path_output+"_gen__R1_001.fastq.gz";
+  string R2_outfile=path_output+"_gen__R2_001.fastq.gz";
 
 	string clearBC_logfile=path_output+"_clearBC.log";
 	string unclearBC_logfile=path_output+"_unclearBC.log";

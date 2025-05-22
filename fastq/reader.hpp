@@ -48,15 +48,25 @@ namespace fastq {
 
 
   // blob handed out by reader_t<...>
+  //
+  // buf ->          |..............| }
+  //                 ...              |- undefined spare
+  //                 |..............| }  
+  // buf + window -> |..............|                }
+  //                 |..............|                |
+  //                 ...                             |- cv()
+  //                 ...                             |
+  //                 |..............| <- buf + size  }
+  // 
   struct chunk_t {
     std::shared_ptr<char[]> buf;
+    
     size_t size = 0;      // available characters
-    size_t ofs = 0;       // offset first character
+    size_t window = 0;    // offset first character
     bool last = false;    // last chunk available from reader
-    char* data() const noexcept { return buf.get() + ofs; }
 
-    explicit operator std::span<char> () const noexcept { return std::span<char>{buf.get() + ofs, size}; }
-    explicit operator std::string_view () const noexcept { return std::string_view{buf.get() + ofs, size}; }
+    char* data() const noexcept { return buf.get() + window; }
+    std::string_view cv() const noexcept { return std::string_view{data(), size }; }
   };
 
 
@@ -66,8 +76,8 @@ namespace fastq {
     // as such, accepts uncompressed files too
     template <
       typename Allocator,
-      size_t ChunkSize = 1024 * 1024,     // max. chunk size (exclusive window)
       size_t Window = 16 * 1024,          // shall be bigger than max item size
+      size_t ChunkSize = 1024 * 1024,     // max. chunk size (exclusive window)
       unsigned Chunks = 16,               // queue depth, chunks in flight
       unsigned GzBuffer = 128 * 1024
     >
@@ -91,17 +101,13 @@ namespace fastq {
         deflate_ = std::jthread([&, gzin = gzin_](std::stop_token stok) {
           try {
             while (!stok.stop_requested()) {
-              auto chunk = chunk_t{
-                            .buf = std::shared_ptr<char[]>((char*)alloc_.alloc(chunk_size + window), &allocator::free),
-                           };
-              auto avail = static_cast<size_t>(gzread(gzin, chunk.buf.get() + window, static_cast<unsigned>(chunk_size)));
+              auto buf =  std::shared_ptr<char[]>((char*)alloc_.alloc(chunk_size + window), &allocator::free);
+              auto avail = static_cast<size_t>(gzread(gzin, buf.get() + window, static_cast<unsigned>(chunk_size)));
               if (avail == size_t(-1)) {  // error
                 throw -1;
               }
-              chunk.ofs = window;
-              chunk.size = avail;
-              bool last = chunk.last = avail < chunk_size;
-              chunks_.push(std::move(chunk));
+              bool last = avail < chunk_size;
+              chunks_.push(chunk_t{ .buf = std::move(buf), .size = avail, .window = window, .last = last});
               if (last) {   // eof
                 break;
               }
@@ -130,20 +136,12 @@ namespace fastq {
       bool eof() const noexcept { return eof_; }
       const std::filesystem::path& path() const noexcept { return path_; }
 
-      // grabs a new chunk and copies over tail into the window-part of the chunk.
-      // returns the adjusted chunk or an empty chunk_t if eof() == true
-      value_type operator()(std::string_view tail = {}) {
+      // returns new chunk or an empty chunk_t if eof() == true
+      value_type operator()() {
         if (!eof_) {
           auto chunk = chunks_.pop(); 
           tot_bytes_ += chunk.size;
           eof_ = chunk.last | fail_.load(std::memory_order_acquire);
-          if (!tail.empty() && chunk.buf) {
-            const auto ts = tail.size();
-            assert(ts < window);
-            std::memcpy(chunk.data() - ts, tail.data(), ts);
-            chunk.ofs -= ts;
-            chunk.size += ts;
-          }
           return chunk;
         }
         return {};

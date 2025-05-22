@@ -32,7 +32,7 @@
 #include <memory>
 #include <thread>
 #include <bit>
-#include <queue>
+#include <vector>
 #include "reader.hpp"
 
 
@@ -66,13 +66,13 @@ namespace fastq {
   private:
     std::unique_ptr<T[]> views_;
     const size_t size_ = 0;
-    std::queue<chunk_t> shared_storage_;   // keep chunks alive
+    std::vector<chunk_t> shared_storage_;   // keep chunks alive
   };
   
 
   template <
     typename Reader,
-    typename TrimPolicy,
+    typename TrimPolicy,  // trim tail of new chunk
     typename SplitPolicy
   >
   class base_splitter {
@@ -80,21 +80,19 @@ namespace fastq {
     using value_type = SplitPolicy::value_type;
     using blk_type = blk_reads_t<value_type>;
     
-    explicit base_splitter(const std::filesystem::path& path) : reader_(std::make_shared<Reader>(path)) {
-      chunks.emplace();
-    }
+    explicit base_splitter(const std::filesystem::path& path) : reader_(std::make_shared<Reader>(path)) {}
 
-    bool eof() const noexcept { return chunks.back().last && cv.empty(); }
+    bool eof() const noexcept { return last_ && cv_.empty(); }
     bool failed() const noexcept { return reader_->failed(); }
     const Reader& reader() const noexcept { return *reader_.get(); }
 
     // returns view into memory we don't own
     // valid until next call to operator()
     value_type operator()() {
-      if (cv.empty()) [[unlikely]] {
+      if (cv_.empty()) [[unlikely]] {
         if (!next_chunk()) return {};
       }
-      return SplitPolicy::apply(cv);
+      return SplitPolicy::apply(cv_);
     }
 
     // returns views into up to n items
@@ -112,32 +110,41 @@ namespace fastq {
 
   private:
     bool next_chunk() {
-      if (chunks.back().last) [[unlikely]] {
+      if (last_) [[unlikely]] {
         return false;
       }
-      auto& chunk = chunks.emplace((*reader_.get())(tail));
-      TrimPolicy::apply(chunk, cv, tail);
-      if (!buffered) {
-        chunks.pop();
+      auto chunk = (*reader_.get())();
+      last_ = chunk.last;
+      if (!chunks_.empty()) {
+        // copy over into window spare
+        auto& prev = chunks_.back();
+        std::memcpy(chunk.data() - tail_len_, prev.data() + prev.size - tail_len_, tail_len_);
+        if (!buffered_) {
+          chunks_.pop_back();
+        }
       }
+      auto tcv = TrimPolicy::apply(chunk);
+      cv_ = { chunk.cv().data() - tail_len_, tcv.length() + tail_len_ };
+      tail_len_ = chunk.cv().length() - tcv.length();
+      assert(tail_len_ < Reader::window);
+      chunks_.push_back(std::move(chunk));
       return true;
     }
 
-    std::queue<chunk_t> release_buffer() {
-      auto tmp = std::move(chunks); chunks = {};
-      chunks.push(tmp.back());   // keep current
+    std::vector<chunk_t> release_buffer() {
+      auto tmp = std::move(chunks_); chunks_ = {};
+      chunks_.push_back(tmp.back());   // keep current
       return tmp;
     }
 
     struct buffer_guard_t{ bool& buffered; ~buffer_guard_t() { buffered = false; } };
-    auto buffer_guard() { return buffer_guard_t(buffered = true); }
+    auto buffer_guard() { return buffer_guard_t(buffered_ = true); }
 
-    std::string_view cv;       // view into current chunk
-    std::string_view tail;     // orphan last chunk
-    std::queue<chunk_t> chunks;   // buffered chunks
-    bool buffered = false;
-
-  private:
+    std::string_view cv_;          // view into current chunk
+    std::vector<chunk_t> chunks_;   // buffered chunks
+    size_t tail_len_ = 0;
+    bool last_ = false;
+    bool buffered_ = false;
     std::shared_ptr<Reader> reader_;
   };
 
@@ -145,9 +152,8 @@ namespace fastq {
   namespace policy {
 
     struct char_trim {
-      static void apply(const chunk_t& chunk, std::string_view& /* out */ cv, std::string_view& /* out */ tail) noexcept {
-        cv = std::string_view(chunk);
-        tail = {};
+      static std::string_view apply(const chunk_t& chunk) noexcept {
+        return chunk.cv();
       }
     };
 
@@ -164,45 +170,81 @@ namespace fastq {
 
 
     template <
-      char Delim,
-      bool SkipDelim,
-      bool StartSymbol
+      char StartSymbol,
+      char StopSymbol
     >
-    struct delim_trim {
-      // sets cv and tail for a new chunk.
-      static void apply(const chunk_t& chunk, std::string_view& /* out */ cv, std::string_view& /* out */ tail) noexcept {
-        cv = std::string_view{chunk};
-        tail = {};
+    struct brace_trim {
+      static constexpr char delim[] = { StopSymbol, StartSymbol, '\0' };
+
+      static std::string_view apply(const chunk_t& chunk) noexcept {
+        auto cv = chunk.cv();
         if (!chunk.last) [[likely]] {
           // not the last chunk: 
           // identify tail section potentially overlapping into next chunk
-          if constexpr (StartSymbol) {
-            auto p1 = cv.rfind(Delim);
-            tail = cv.substr(p1);
-            cv = cv.substr(0, p1);
-          }
-          else {
-            // stop symbol
-            auto p1 = cv.rfind(Delim);
-            tail = cv.substr(p1 + 1);
+          const auto p1 = cv.rfind(delim);
+          if (p1 != cv.npos) [[likely]] {
             cv = cv.substr(0, p1 + 1);
           }
         }
+        return cv;
+      };
+    };
+
+
+    template <
+      char StartSymbol,
+      char StopSymbol,
+      bool SkipStopSymbol
+    >
+    struct brace_split {
+      static constexpr char delim[] = { StopSymbol, StartSymbol, '\0' };
+      using value_type = std::string_view;
+
+      static value_type apply(std::string_view& /* in/out */ cv) noexcept {
+        assert(cv[0] == StartSymbol);
+        auto ret = std::string_view{};
+        const auto p1 = cv.find(delim);
+        if (p1 == cv.npos) [[unlikely]] {
+          ret = cv;
+          cv = {};
+        }
+        else {
+          ret = cv.substr(0, p1 + !SkipStopSymbol);
+          cv.remove_prefix(p1 + 1);
+        }
+        return ret;
+      }
+    };
+
+
+    template <
+      char Delim,         // delimiter
+      bool IsStartSymbol  // delimiter is start symbol
+    >
+    struct delim_trim {
+      // sets cv and tail for a new chunk.
+      static std::string_view apply(const chunk_t& chunk) noexcept {
+        auto cv = chunk.cv();
+        if (!chunk.last) [[likely]] {
+          auto p1 = cv.rfind(Delim);
+          cv = cv.substr(0, p1 + !IsStartSymbol);
+        }
+        return cv;
       };
     };
 
 
     template <
       char Delim,
-      bool SkipDelim,
-      bool StartSymbol
+      bool IsStartSymbol,
+      bool SkipDelim
     >
     struct delim_split {
       using value_type = std::string_view;
 
       static value_type apply(std::string_view& /* in/out */ cv) noexcept {
         auto ret = value_type{};
-        if constexpr (StartSymbol) {
+        if constexpr (IsStartSymbol) {
           assert(cv[0] == Delim);
           const auto p1 = cv.substr(1).find(Delim);
           ret = cv.substr(SkipDelim, p1);
@@ -225,16 +267,15 @@ namespace fastq {
       static constexpr int size = std::popcount(Mask);
       using value_type = std::array<std::string_view, size>;
 
-      static value_type apply(std::string_view& cv) noexcept {
-        auto sv = delim_split<'@', false, true>::apply(cv);
+      static value_type apply(std::string_view& /* in out */ cv) noexcept {
+        using field_split = delim_split<'\n', false, true>;
         auto ret = value_type{};
         unsigned j = 0;
         for (auto i = 0; i < size; ++i) {
-          auto p1 = sv.find('\n');
+          auto field = field_split::apply(cv);
           if (Mask & (1u << i)) {
-            ret[j++] = sv.substr(0, p1);
+            ret[j++] = field;
           }
-          sv.remove_prefix(p1 + 1);
         }
         return ret;
       }
@@ -253,24 +294,37 @@ namespace fastq {
 
 
   template <
+    typename Reader,
+    char StartSymbol,
+    char StopSymbol,
+    bool SkipStopSymbol
+  >
+  using brace_splitter = base_splitter<
+    Reader,
+    policy::brace_trim<StartSymbol, StopSymbol>,
+    policy::brace_split<StartSymbol, StopSymbol, SkipStopSymbol>
+  >;
+
+
+  template <
+    typename Reader,
     char Delim,
-    bool SkipDelim,
-    bool StartSymbol,
-    typename Reader = reader_t
+    bool IsStartSymbol,
+    bool SkipDelim
   >
   using delim_splitter = base_splitter<
     Reader, 
-    policy::delim_trim<Delim, SkipDelim, StartSymbol>,
-    policy::delim_split<Delim, SkipDelim, StartSymbol>
+    policy::delim_trim<Delim, IsStartSymbol>,
+    policy::delim_split<Delim, IsStartSymbol, SkipDelim>
   >;
   
   
   template <typename Reader = reader_t>
-  using line_splitter = delim_splitter<'\n', true, false, Reader>;
+  using line_splitter = delim_splitter<Reader, '\n', false, true>;
   
 
   template <typename Reader = reader_t>
-  using seq_splitter = delim_splitter<'@', false, true, Reader>;
+  using seq_splitter = brace_splitter<Reader, '@', '\n', false>;
   
 
   // masked fasta sequence splitter
@@ -280,8 +334,8 @@ namespace fastq {
   template <size_t Mask = 0b1111, typename Reader = reader_t>
   using seq_field_splitter = base_splitter<
     Reader, 
-    policy::delim_trim<'@', false, true>,
+    policy::brace_trim<'@', '\n'>,
     policy::masked_seq_split<Mask>
   >;
-  
+
 }
