@@ -48,7 +48,7 @@ namespace fs = std::filesystem;
 using namespace std::chrono_literals;
 
 // global thread-pool
-std::shared_ptr<hahi::pool_t> gPool{ new hahi::pool_t{unsigned(16)} };
+std::shared_ptr<hahi::pool_t> gPool{ new hahi::pool_t{unsigned(-1)} };
 
 const auto bc_A = barcode_t("../data/BC_A.txt");
 const auto bc_B = barcode_t("../data/BC_B.txt");

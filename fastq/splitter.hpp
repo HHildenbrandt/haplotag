@@ -271,7 +271,7 @@ namespace fastq {
         using field_split = delim_split<'\n', false, true>;
         auto ret = value_type{};
         unsigned j = 0;
-        for (auto i = 0; i < size; ++i) {
+        for (auto i = 0; i < 4; ++i) {
           auto field = field_split::apply(cv);
           if (Mask & (1u << i)) {
             ret[j++] = field;
