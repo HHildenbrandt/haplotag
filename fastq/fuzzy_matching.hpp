@@ -29,6 +29,7 @@
 #include <numeric>  // iota, max
 #include <algorithm>
 #include <unordered_map>
+#include "fastq.hpp"
 #include "barcode.hpp"
 
 
@@ -36,7 +37,7 @@ namespace fastq {
 
 
   // generic Levensthein edit distance
-  inline int edit_distance(std::string_view a, std::string_view b) {
+  inline int edit_distance(str_view a, str_view b) {
     if (a.size() > b.size()) std::swap(a, b);
     // remove common prefix. removing suffix not worth it performance wise...
     while (!a.empty() && (a[0] == b[0])) { a.remove_prefix(1), b.remove_prefix(1); }
@@ -58,7 +59,7 @@ namespace fastq {
   
 
   // bounded Levensthein edit distance, early exit if ed > min_ed
-  inline int edit_distance(std::string_view a, std::string_view b, int min_ed) {
+  inline int edit_distance(str_view a, str_view b, int min_ed) {
     if (a.size() > b.size()) std::swap(a, b);
     // remove common prefix. removing suffix not worth it performance wise...
     while (!a.empty() && (a[0] == b[0])) { a.remove_prefix(1), b.remove_prefix(1); }
@@ -98,17 +99,17 @@ namespace fastq {
     int ed = -1;          // edit distance, undefined if false == valid()
     ReadType read_type = ReadType::unclear;
     
-    std::string_view tag() const { 
+    str_view tag() const { 
       return (read_type != unclear) ? bc[idx].tag() : bc.unclear_tag(); 
     }
     
-    std::string_view code() const {
-      return (read_type != unclear) ? bc[idx].code() : std::string_view{};
+    str_view code() const {
+      return (read_type != unclear) ? bc[idx].code() : str_view{};
     }
   };
 
 
-  inline match_t min_edit_distance(std::string_view RX, const barcode_t& bc) {
+  inline match_t min_edit_distance(str_view RX, const barcode_t& bc) {
     if (RX.empty()) return { .bc = bc };  // unclear
     int min_ed = 1'000'000;
     int idx = 0;
@@ -130,52 +131,4 @@ namespace fastq {
     return { .bc = bc, .idx = idx, .ed = min_ed, .read_type = rt };
   }
   
-  
-  class ed_cache_t {
-    size_t check_length(std::string_view str) const {
-      auto len = str.length();
-      if (str.length() > 21) throw std::runtime_error("ed_cache_t: code to big");
-      return len;
-    }
-
-    using ed_map_t = std::unordered_map<uint64_t, int>;
-    std::unordered_map<uint64_t, ed_map_t> cache_;
-
-  public:
-    size_t size() const noexcept { 
-      return cache_. size(); 
-    }
-    
-    auto* find_map(std::string_view code) const { 
-      auto it = cache_.find(hash(code)); 
-      return (it != cache_.end()) ? &it->second : nullptr;
-    }
-    
-    int find_ed(auto& map, std::string_view bc) const {
-      if (auto jt = map.find(hash(bc)); jt != map.end()) {
-        return jt->second;
-      }
-      return -1;
-    }
-    
-    ed_map_t& insert(std::string_view code) {
-      return cache_[hash(code)];
-    }
-
-    void insert(ed_map_t& map, std::string_view bc, int ed) {
-      map[hash(bc)] = ed;  
-    }
-
-    void insert(std::string_view code, std::string_view bc, int ed) { 
-      cache_[hash(code)][hash(bc)] = ed; 
-    }
-    
-    void merge(ed_cache_t&& rhs) { 
-      for (auto it = rhs.cache_.begin(); it != rhs.cache_.end(); ++it) {
-        auto& map = cache_[it->first];
-        map.merge(it->second);
-      }
-    }
-  };
-
 }

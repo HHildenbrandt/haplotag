@@ -1,6 +1,8 @@
+#include <iostream>
 #include <type_traits>
 #include <cuda_runtime.h>
 #include <cuda/std/span>
+#include <fastq/fastq.hpp>
 #include <fastq/reader.hpp>
 #include <fastq/splitter.hpp>
 
@@ -26,7 +28,7 @@ namespace cu {
   };
 
 
-  using reader_t = fastq::detail::reader_t<chunk_allocator<char>, 16 * 1024, 64 * 1024 * 1024>;
+  using reader_t = fastq::detail::reader_t<chunk_allocator<char>, 16 * 1024, 8 * 1024 * 1024>;
   //using reader_t = fastq::reader_t;
 
 }
@@ -36,8 +38,11 @@ using splitter_t = fastq::seq_splitter<cu::reader_t>;
 
 int main() {
   auto s = splitter_t("../data/_gen_I2_001.fastq.gz");
+  size_t items = 0;
   while (!s.eof()) {
     auto x = s();
+    ++items;
   }
+  std::cout << items << " items read, " << s.reader().tot_bytes() / (1000 * 1000) << " MB" << std::endl;
   return 0;
 }

@@ -30,26 +30,27 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "fastq.hpp"
 
 
 namespace fastq {
 
 
   // returns empty string_view if [pos, pos+count) is out of bounds
-  inline std::string_view constexpr 
-  save_substr(std::string_view str, 
+  inline str_view constexpr 
+  save_substr(str_view str, 
               size_t pos,
-              size_t count = std::string_view::npos) noexcept {
+              size_t count = str_view::npos) noexcept {
     if (pos > str.length()) [[unlikely]] return {};
     auto rlen = std::min(str.length() - pos, count);
-    if ((count != std::string_view::npos) && (rlen < count)) return {};
-    auto x = std::string_view{ str.data() + pos, rlen };
+    if ((count != str_view::npos) && (rlen < count)) return {};
+    auto x = str_view{ str.data() + pos, rlen };
     return x;
   }
   
 
   // bijective hash code for small codes, |code| <= 21.
-  constexpr uint64_t hash(std::string_view code) {
+  constexpr uint64_t hash(str_view code) {
     // 'A' = 0b1000001
     // 'C' = 0b1000011
     // 'G' = 0b1000111

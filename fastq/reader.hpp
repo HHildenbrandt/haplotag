@@ -42,6 +42,7 @@
 #include <device/queue.hpp>
 #include <device/mutex.hpp>
 #include <zlib.h>
+#include "fastq.hpp"
 
 
 namespace fastq {
@@ -57,6 +58,7 @@ namespace fastq {
   //                 ...                             |- cv()
   //                 ...                             |
   //                 |..............| <- buf + size  }
+  //                 |00000000000000| simd padding
   // 
   struct chunk_t {
     std::shared_ptr<char[]> buf;
@@ -66,7 +68,7 @@ namespace fastq {
     bool last = false;    // last chunk available from reader
 
     char* data() const noexcept { return buf.get() + window; }
-    std::string_view cv() const noexcept { return std::string_view{data(), size }; }
+    str_view cv() const noexcept { return str_view{data(), size }; }
   };
 
 
@@ -77,7 +79,7 @@ namespace fastq {
     template <
       typename Allocator,
       size_t Window = 16 * 1024,          // shall be bigger than max item size
-      size_t ChunkSize = 1024 * 1024,     // max. chunk size (exclusive window)
+      size_t ChunkSize = 1024 * 1024,     // max. chunk size (exclusive window. padding)
       unsigned Chunks = 16,               // queue depth, chunks in flight
       unsigned GzBuffer = 128 * 1024
     >
@@ -87,11 +89,11 @@ namespace fastq {
       static_assert(ChunkSize < std::numeric_limits<int>::max());   // zlib limitation
       static constexpr size_t window = Window;
       static constexpr size_t chunk_size = ChunkSize;
+      static constexpr size_t padding = 512;    // simd padding
+      static constexpr size_t avail_bytes = chunk_size - padding;
       static constexpr unsigned chunks = Chunks;
       static constexpr unsigned gz_buffer = GzBuffer;
-      
       using allocator = Allocator;
-      using value_type = chunk_t;
 
       explicit reader_t(const std::filesystem::path& path) : path_(path) {
         if (nullptr == (gzin_ = gzopen(path.string().c_str(), "rb"))) {
@@ -101,12 +103,13 @@ namespace fastq {
         deflate_ = std::jthread([&, gzin = gzin_](std::stop_token stok) {
           try {
             while (!stok.stop_requested()) {
-              auto buf =  std::shared_ptr<char[]>((char*)alloc_.alloc(chunk_size + window), &allocator::free);
-              auto avail = static_cast<size_t>(gzread(gzin, buf.get() + window, static_cast<unsigned>(chunk_size)));
+              auto buf =  std::shared_ptr<char[]>(static_cast<char*>(alloc_.alloc(chunk_size + window)), &allocator::free);
+              const auto avail = static_cast<size_t>(gzread(gzin, buf.get() + window, static_cast<unsigned>(avail_bytes)));
               if (avail == size_t(-1)) {  // error
                 throw -1;
               }
-              bool last = avail < chunk_size;
+              const bool last = avail < avail_bytes;
+              std::memset(buf.get() + window + avail, 0, padding);
               chunks_.push(chunk_t{ .buf = std::move(buf), .size = avail, .window = window, .last = last});
               if (last) {   // eof
                 break;
@@ -137,7 +140,7 @@ namespace fastq {
       const std::filesystem::path& path() const noexcept { return path_; }
 
       // returns new chunk or an empty chunk_t if eof() == true
-      value_type operator()() {
+      chunk_t operator()() {
         if (!eof_) {
           auto chunk = chunks_.pop(); 
           tot_bytes_ += chunk.size;

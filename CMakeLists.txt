@@ -54,12 +54,16 @@ add_haplo_demult(demult_fastq)
 add_haplo_demult(H4_demult_fastq_with_clipping_8bp-plateBC)
 add_haplo_demult(H4_demult_fastq_with_clipping_noPlateBC)
 add_haplo_demult(H4_demult_fastq_with_clipping_7bp-plateBC)
+add_haplo_demult(H4_debug)
 
 
 # fastq binaries
+find_path(STRINGZILLA_INCLUDE_DIRS "stringzilla/drafts.h")
+message(stringzilla=${STRINGZILL_INCLUDE_DIRS})
+
 macro(add_fastq name)
     add_executable(${name} ${CMAKE_SOURCE_DIR}/src/${name}.cpp)
-    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR})
+    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR} ${STRINGZILLA_INCLUDE_DIRS})
     target_link_libraries(${name} PRIVATE zlibstatic ${FU2})
     set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin$<0:>)
 endmacro()

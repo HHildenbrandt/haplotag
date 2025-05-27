@@ -46,6 +46,8 @@
 #include <bit>
 #include <device/pool.hpp>
 #include <zlib.h>
+#include "fastq.hpp"
+
 
 namespace fastq {
 
@@ -167,7 +169,7 @@ namespace fastq {
     void puts(const T& val) {
       if (closed_) throw std::runtime_error("fastq_writer: attempt to write into closed stream");
       if constexpr (std::is_convertible_v<T, std::string> ||
-                    std::is_convertible_v<T, std::string_view>) {
+                    std::is_convertible_v<T, str_view>) {
         do_put<true>(val);
       }
       else {
@@ -180,7 +182,7 @@ namespace fastq {
     void put(const T& val) {
       if (closed_) throw std::runtime_error("fastq_writer: attempt to write into closed stream");
       if constexpr (std::is_convertible_v<T, std::string> ||
-                    std::is_convertible_v<T, std::string_view>) {
+                    std::is_convertible_v<T, str_view>) {
         do_put<false>(val);
       }
       else {
@@ -190,7 +192,7 @@ namespace fastq {
 
   private:
     template <bool newline>
-    void do_put(std::string_view str) {
+    void do_put(str_view str) {
       assert((str.length() + newline) < tot_chunk_size());
       auto avail = tot_chunk_size() - in_chunk_.size();
       if (avail < str.length() + newline) {
