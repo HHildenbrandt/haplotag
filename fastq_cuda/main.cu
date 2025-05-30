@@ -20,7 +20,7 @@ namespace cu {
       if (cudaSuccess != cudaMallocManaged(&ptr, bytes)) {
         throw std::bad_alloc{};
       }
-      std::cout << uintptr_t(ptr) << " + " << bytes << std::endl;
+      std::cout << "0x" << std::hex << uintptr_t(ptr) << std::dec << " + " << bytes << std::endl;
       cudaDeviceSynchronize();
       // cudaMemAdvise(ptr, bytes, cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId);
       // cudaMemAdvise(ptr, bytes, cudaMemAdviseSetAccessedBy, cudaCpuDeviceId);
@@ -28,7 +28,7 @@ namespace cu {
     };
 
     static void free(void* ptr) noexcept { 
-      std::cout << uintptr_t(ptr) << " - " << std::endl;
+      std::cout << "0x" << std::hex << uintptr_t(ptr) << std::dec << " - " << std::endl;
       cudaDeviceSynchronize();
       cudaFree(ptr); 
     } 
@@ -136,7 +136,7 @@ namespace cu {
     str_view rx = RX[idx];
     for (int i = 0; i < nbc; ++i) {
       str_view bc = BC[i];
-      out[idx] = edit_distance<8>(rx.first, rx.length, bc.first, bc.length);
+      out[idx] = edit_distance<8>(rx.first, 7, bc.first, bc.length);
     }
   }
 
@@ -148,23 +148,24 @@ namespace cu {
   }
 
   void launch_blk_edit_distance(auto& blk, str_view* dbc, size_t nbc, size_t* ed_out) {
-    //auto drx = make_device_ptr<str_view>(blk.data(), blk.size());
+    auto drx = make_device_ptr<str_view>(blk.data(), blk.size());
     dim3 numBlocks(blk.size() / 256);
-    nop<<<numBlocks, 256>>>(nullptr, blk.size(), nullptr, nbc, ed_out);
+    blk_edit_distance<<<numBlocks, 256>>>(drx.get(), blk.size(), dbc, nbc, ed_out);
   }
 
 }
 
 
 int main() {
+  constexpr size_t N = 10000;
   auto s = cu::read_field_splitter("../data/_gen_I2_001.fastq.gz");
-  auto bc = cu::barcode_splitter("../data/BC_A.txt")(10000);
+  auto bc = cu::barcode_splitter("../data/BC_A.txt")(N);
   auto dbc = cu::make_device_ptr(bc.data(), bc.size());
   void* ed_out = nullptr;
-  cudaMalloc(&ed_out, 10000 * sizeof(cu::str_view));
+  cudaMalloc(&ed_out, N * sizeof(cu::str_view));
   size_t items = 0;
   while (!s.eof()) {
-    auto blk = s(10000);
+    auto blk = s(N);
     cu::launch_blk_edit_distance(blk, dbc.get(), bc.size(), (size_t*)ed_out);
     items += blk.size();
   }
