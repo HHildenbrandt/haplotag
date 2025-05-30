@@ -48,7 +48,7 @@
 namespace fastq {
 
 
-  // blob handed out by reader_t<...>
+  // blob handed out by reader_t<...>::operator()
   //
   // buf ->          |..............| }
   //                 ...              |- undefined spare
@@ -59,6 +59,8 @@ namespace fastq {
   //                 ...                             |
   //                 |..............| <- buf + size  }
   //                 |00000000000000| simd padding
+  //                 |...
+  //                 |..............| <- buf + reader_t<...>::chunk_size
   // 
   struct chunk_t {
     std::shared_ptr<char[]> buf;
@@ -71,7 +73,7 @@ namespace fastq {
     str_view cv() const noexcept { return str_view{data(), size }; }
   };
 
-
+  
   namespace detail {
 
     // asynchronous wrapper around `zlib::gzread`
@@ -93,7 +95,7 @@ namespace fastq {
       static constexpr size_t avail_bytes = chunk_size - padding;
       static constexpr unsigned chunks = Chunks;
       static constexpr unsigned gz_buffer = GzBuffer;
-      using allocator = Allocator;
+      using allocator_t = Allocator;
 
       explicit reader_t(const std::filesystem::path& path) : path_(path) {
         if (nullptr == (gzin_ = gzopen(path.string().c_str(), "rb"))) {
@@ -103,7 +105,7 @@ namespace fastq {
         deflate_ = std::jthread([&, gzin = gzin_](std::stop_token stok) {
           try {
             while (!stok.stop_requested()) {
-              auto buf =  std::shared_ptr<char[]>(static_cast<char*>(alloc_.alloc(chunk_size + window)), &allocator::free);
+              auto buf =  std::shared_ptr<char[]>(static_cast<char*>(alloc_.alloc(chunk_size + window)), &allocator_t::free);
               const auto avail = static_cast<size_t>(gzread(gzin, buf.get() + window, static_cast<unsigned>(avail_bytes)));
               if (avail == size_t(-1)) {  // error
                 throw -1;
@@ -138,6 +140,7 @@ namespace fastq {
       bool failed() const noexcept { return fail_.load(std::memory_order_acquire); }
       bool eof() const noexcept { return eof_; }
       const std::filesystem::path& path() const noexcept { return path_; }
+      allocator_t& allocator() { return alloc_; }
 
       // returns new chunk or an empty chunk_t if eof() == true
       chunk_t operator()() {
@@ -155,7 +158,7 @@ namespace fastq {
       mutable std::atomic<bool> fail_{false};
       size_t tot_bytes_ = 0;
       bool eof_ = false;
-      allocator alloc_;
+      allocator_t alloc_;
       std::jthread deflate_;
       gzFile gzin_ = nullptr;
       const std::filesystem::path path_;

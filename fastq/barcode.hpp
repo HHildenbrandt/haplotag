@@ -31,14 +31,14 @@
 #include <string_view>
 #include <vector>
 #include "fastq.hpp"
+#include "splitter.hpp"
 
 
 namespace fastq {
 
 
   // returns empty string_view if [pos, pos+count) is out of bounds
-  inline str_view constexpr 
-  save_substr(str_view str, 
+  inline str_view save_substr(str_view str, 
               size_t pos,
               size_t count = str_view::npos) noexcept {
     if (pos > str.length()) [[unlikely]] return {};
@@ -49,19 +49,6 @@ namespace fastq {
   }
   
 
-  // bijective hash code for small codes, |code| <= 21.
-  constexpr uint64_t hash(str_view code) {
-    // 'A' = 0b1000001
-    // 'C' = 0b1000011
-    // 'G' = 0b1000111
-    // 'T' = 0b1010100
-    if (code.length() > 21) throw std::runtime_error("ed_cache_t: code to big");
-    uint64_t hash = 0;
-    for (auto ch : code) hash = (hash << 3) | (ch & 0b111);
-    return hash;
-  };
-
-  
   // barcode file reader
   // more general: <tag, code> file reader
   class barcode_t {
@@ -79,20 +66,17 @@ namespace fastq {
       char code_letter() const noexcept { return tag_[0]; }
       const std::string& code() const noexcept { return code_; }
       const std::string& tag() const noexcept { return tag_; }
-      uint64_t hash() const noexcept { return hash_; }
 
     private:
       friend class barcode_t;
       const std::string code_;
       const std::string tag_;
-      uint64_t hash_ = 0;
     };
 
     barcode_t(barcode_t&) = delete;
     barcode_t& operator=(barcode_t&) = delete;
     
     explicit barcode_t(const std::filesystem::path& path,
-                       bool enable_hash = false,
                        std::string unclear_tag = {}) {
       auto is = std::ifstream(path);
       auto lines = std::vector<std::string>{};
@@ -120,13 +104,13 @@ namespace fastq {
     size_t size() const { return bc_.size();}
     size_t min_code_length() const noexcept { return min_code_length_; }
     size_t max_code_length() const noexcept { return max_code_length_; }
-    bool hash_enabled() const noexcept { return hash_enabled_; }
     
     const entry_t& operator[](size_t idx) const { return bc_[idx];}
     auto begin() const { return bc_.begin(); }
     auto cbegin() const { return bc_.cbegin(); }
     auto end() const { return bc_.end(); }
     auto cend() const { return bc_.cend(); }
+    auto data() const { return bc_.data(); }
     
     const std::string& unclear_tag() const noexcept { return unclear_tag_; }
 
@@ -135,8 +119,8 @@ namespace fastq {
     std::string unclear_tag_;
     size_t min_code_length_ = 1'000'000;
     size_t max_code_length_ = 0;
-    bool hash_enabled_ = false;
   };
+
 
 }
 

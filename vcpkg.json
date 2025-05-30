@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "haplotag",
   "version-string": "0.1.0",
   "dependencies": [
@@ -11,6 +12,9 @@
       "host": true
     },
     "zlib",
-    "stringzilla"
+    {
+      "name": "stringzilla",
+      "host": true
+    }
   ]
 }

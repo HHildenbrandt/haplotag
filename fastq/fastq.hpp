@@ -20,9 +20,10 @@
 */
 
 #pragma once
-
-#include <string_view>
-
+/*
+#include <stringzilla/stringzilla.hpp>
+namespace sz = ashvardanian::stringzilla;
+*/
 
 namespace fastq {
 

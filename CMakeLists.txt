@@ -54,15 +54,20 @@ add_haplo_demult(demult_fastq)
 add_haplo_demult(H4_demult_fastq_with_clipping_8bp-plateBC)
 add_haplo_demult(H4_demult_fastq_with_clipping_noPlateBC)
 add_haplo_demult(H4_demult_fastq_with_clipping_7bp-plateBC)
-add_haplo_demult(H4_debug)
+#add_haplo_demult(H4_debug)
 
 
 # fastq binaries
-find_path(STRINGZILLA_INCLUDE_DIRS "stringzilla/drafts.h")
-message(stringzilla=${STRINGZILL_INCLUDE_DIRS})
+find_package(CUDAToolkit)
+if (${CUDAToolkit_FOUND})
+    set(FASTQ_HAS_CUDA 1)
+endif()
 
+
+find_path(STRINGZILLA_INCLUDE_DIRS "stringzilla/drafts.h")
 macro(add_fastq name)
     add_executable(${name} ${CMAKE_SOURCE_DIR}/src/${name}.cpp)
+    target_compile_definitions(${name} PRIVATE FASTQ_HAS_CUDA=${FASTQ_HAS_CUDA})
     target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR} ${STRINGZILLA_INCLUDE_DIRS})
     target_link_libraries(${name} PRIVATE zlibstatic ${FU2})
     set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin$<0:>)
@@ -90,10 +95,8 @@ if(NOT WIN32)
 endif()
 
 
-find_package(CUDAToolkit)
-if (${CUDAToolkit_FOUND})
-    message(STATUS "Found CUDAToolkit")
+if (${FASTQ_HAS_CUDA})
     add_subdirectory(fastq_cuda)
 else()
-    message(STATUS "CUDAToolkit not found. Skipping CUDA builds :(")
+    message(STATUS "CUDAToolkit not found. Skipping CUDA builds")
 endif()

@@ -40,9 +40,6 @@
 
 namespace fastq {
 
-  using recycle_fun = std::function<void(std::queue<chunk_t>&&)>;
-
-
   // return type of Splitter::operator()(size_t n).
   // shares ownership of the viewed memory (a.k.a. reader-chunks).
   template <typename T>
@@ -51,27 +48,24 @@ namespace fastq {
     blk_reads_t(blk_reads_t&&) = default;
     blk_reads_t& operator=(blk_reads_t&&) = default;
     
-    blk_reads_t(std::unique_ptr<T[]>&& val, size_t size, auto&& storage) : 
-      views_(std::move(val)), 
-      size_(size),
+    blk_reads_t(std::vector<T>&& val, auto&& storage) : 
+      val_{std::move(val)}, 
       shared_storage_(std::move(storage)) {
     }
 
-    bool empty() const noexcept { return 0 == size_; }
-    size_t size() const noexcept { return size_; }
+    bool empty() const noexcept { return val_.empty(); }
+    size_t size() const noexcept { return val_.size(); }
 
-    T operator[](size_t i) const { return views_[i]; }
-    const T* data() const noexcept { return views_.get(); }
-    const T* begin() const noexcept { return views_.get(); }
-    const T* end() const noexcept { return views_.get() + size_; }
+    T operator[](size_t i) const { return val_[i]; }
+    const T* data() const noexcept { return val_.data(); }
+    auto begin() const noexcept { return val_.begin(); }
+    auto end() const noexcept { return val_.end(); }
 
   private:
-    std::unique_ptr<T[]> views_;
-    const size_t size_ = 0;
+    std::vector<T> val_;
     std::vector<chunk_t> shared_storage_;   // keep chunks alive
   };
   
-
 
   template <
     typename TrimPolicy,  // trim tail of new chunk
@@ -79,7 +73,9 @@ namespace fastq {
   >
   class chunk_splitter {
   public:
-    using value_type = SplitPolicy::value_type;
+    using trim_policy = TrimPolicy;
+    using split_policy = SplitPolicy;
+    using value_type = split_policy::value_type;
 
     // assigns new chunk and returns old chunk
     chunk_t& assign(chunk_t&& chunk) {
@@ -87,7 +83,7 @@ namespace fastq {
         // copy tail over into window spare
         std::memcpy(chunk.data() - tail_len_, chunk_.data() + chunk_.size - tail_len_, tail_len_);
       }
-      auto trimmed_cv = TrimPolicy::apply(chunk);
+      auto trimmed_cv = trim_policy::apply(chunk);
       cv_ = { chunk.cv().data() - tail_len_, trimmed_cv.length() + tail_len_ };
       tail_len_ = chunk.cv().length() - trimmed_cv.length();
       chunk_ = std::move(chunk);
@@ -100,7 +96,7 @@ namespace fastq {
 
     value_type operator()() {
       assert(!empty());
-      return SplitPolicy::apply(cv_);
+      return split_policy::apply(cv_);
     }
 
   private:
@@ -137,15 +133,16 @@ namespace fastq {
     // returns views into up to n items
     // valid over the live time of the returned object
     blk_reads_t<value_type> operator()(size_t n) {
-      using allocator = Reader::allocator;
-      auto v = std::make_unique<value_type[]>(n);
+      using allocator = Reader::allocator_t;
+      auto v = std::vector<value_type>{};
+      v.reserve(n);
       shared_storage_ = std::vector<chunk_t>{chunk_splitter_.chunk()};
-      buffer_guard _{buffered_};
+      buffer_guard _{buffered_ = true};
       size_t i = 0;
       for (; !eof() && (i < n); ++i) {
-        v[i] = this->operator()();
+        v.emplace_back(this->operator()());
       }
-      return blk_reads_t<value_type>{ std::move(v), i, std::move(shared_storage_)};
+      return blk_reads_t<value_type>{ std::move(v), std::move(shared_storage_)};
     }
 
   private:
