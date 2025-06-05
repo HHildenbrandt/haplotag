@@ -58,12 +58,11 @@ namespace fastq {
   //                 ...                             |- cv()
   //                 ...                             |
   //                 |..............| <- buf + size  }
-  //                 |00000000000000| simd padding
   //                 |...
   //                 |..............| <- buf + reader_t<...>::chunk_size
   // 
   struct chunk_t {
-    std::shared_ptr<char[]> buf;
+    chunk_ptr buf;
     
     size_t size = 0;      // available characters
     size_t window = 0;    // offset first character
@@ -91,8 +90,6 @@ namespace fastq {
       static_assert(ChunkSize < std::numeric_limits<int>::max());   // zlib limitation
       static constexpr size_t window = Window;
       static constexpr size_t chunk_size = ChunkSize;
-      static constexpr size_t padding = 512;    // simd padding
-      static constexpr size_t avail_bytes = chunk_size - padding;
       static constexpr unsigned chunks = Chunks;
       static constexpr unsigned gz_buffer = GzBuffer;
       using allocator_t = Allocator;
@@ -105,13 +102,12 @@ namespace fastq {
         deflate_ = std::jthread([&, gzin = gzin_](std::stop_token stok) {
           try {
             while (!stok.stop_requested()) {
-              auto buf =  std::shared_ptr<char[]>(static_cast<char*>(alloc_.alloc(chunk_size + window)), &allocator_t::free);
-              const auto avail = static_cast<size_t>(gzread(gzin, buf.get() + window, static_cast<unsigned>(avail_bytes)));
+              auto buf =  chunk_ptr(static_cast<char*>(alloc_.alloc(chunk_size + window)), &allocator_t::free);
+              const auto avail = static_cast<size_t>(gzread(gzin, buf.get() + window, static_cast<unsigned>(chunk_size)));
               if (avail == size_t(-1)) {  // error
                 throw -1;
               }
-              const bool last = avail < avail_bytes;
-              std::memset(buf.get() + window + avail, 0, padding);
+              const bool last = avail < chunk_size;
               chunks_.push(chunk_t{ .buf = std::move(buf), .size = avail, .window = window, .last = last});
               if (last) {   // eof
                 break;

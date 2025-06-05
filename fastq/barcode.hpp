@@ -73,11 +73,11 @@ namespace fastq {
       const std::string tag_;
     };
 
-    barcode_t(barcode_t&) = delete;
-    barcode_t& operator=(barcode_t&) = delete;
-    
-    explicit barcode_t(const std::filesystem::path& path,
-                       std::string unclear_tag = {}) {
+    // barcode_t(barcode_t&) = delete;
+    // barcode_t& operator=(barcode_t&) = delete;
+    barcode_t() {}
+
+    explicit barcode_t(const std::filesystem::path& path, std::string unclear_tag = {}) {
       auto is = std::ifstream(path);
       auto lines = std::vector<std::string>{};
       std::string line{};

@@ -6,6 +6,7 @@ if (WIN32)
 endif()
 
 project(haplotag)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,12 +34,19 @@ else()
 endif()
 
 if(MSVC)
-    add_definitions(/DNOMINMAX /DWIN32_LEAN_AND_MEAN /D_CRT_SECURE_NO_WARNINGS /DFLUA_USE_WINDOWS)
+    add_definitions(/DNOMINMAX /DWIN32_LEAN_AND_MEAN /D_CRT_SECURE_NO_WARNINGS /DFLUA_USE_WINDOWS /DFASTQ_WIN32)
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
-    add_definitions(-DLUA_USE_MACOSX -DFLUA_USE_MACOS)
+    add_definitions(-DLUA_USE_MACOSX -DFLUA_USE_MACOS -DFASTQ_DARWIN)
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
-    add_definitions(-DLUA_USE_LINUX -DFLUA_USE_LINUX)
+    add_definitions(-DLUA_USE_LINUX -DFLUA_USE_LINUX -DFASTQ_LINUX)
 endif()
+
+# cuda
+find_package(CUDAToolkit)
+if (${CUDAToolkit_FOUND})
+    set(FASTQ_HAS_CUDA 1)
+endif()
+
 
 # original binaries
 macro(add_haplo_demult name)
@@ -54,22 +62,15 @@ add_haplo_demult(demult_fastq)
 add_haplo_demult(H4_demult_fastq_with_clipping_8bp-plateBC)
 add_haplo_demult(H4_demult_fastq_with_clipping_noPlateBC)
 add_haplo_demult(H4_demult_fastq_with_clipping_7bp-plateBC)
-#add_haplo_demult(H4_debug)
 
 
 # fastq binaries
-find_package(CUDAToolkit)
-if (${CUDAToolkit_FOUND})
-    set(FASTQ_HAS_CUDA 1)
-endif()
-
-
 find_path(STRINGZILLA_INCLUDE_DIRS "stringzilla/drafts.h")
 macro(add_fastq name)
     add_executable(${name} ${CMAKE_SOURCE_DIR}/src/${name}.cpp)
     target_compile_definitions(${name} PRIVATE FASTQ_HAS_CUDA=${FASTQ_HAS_CUDA})
     target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR} ${STRINGZILLA_INCLUDE_DIRS})
-    target_link_libraries(${name} PRIVATE zlibstatic ${FU2})
+    target_link_libraries(${name} PRIVATE zlibstatic ${FU2} nlohmann_json::nlohmann_json)
     set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin$<0:>)
 endmacro()
 add_fastq(fastq_barcode)
@@ -78,7 +79,7 @@ add_fastq(fastq_write)
 add_fastq(fastq_fuzzy)
 add_fastq(fastq_read)
 add_fastq(fastq_splitter)
-
+add_fastq(fastq_H4)
 
 if(NOT WIN32)
     add_executable(pigz
@@ -95,7 +96,7 @@ if(NOT WIN32)
 endif()
 
 
-if (${FASTQ_HAS_CUDA})
+if (${CUDAToolkit_FOUND})
     add_subdirectory(fastq_cuda)
 else()
     message(STATUS "CUDAToolkit not found. Skipping CUDA builds")

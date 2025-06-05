@@ -323,7 +323,7 @@ int main (int argc, char* argv[])
 
   string codeA,codeB,codeC,codeD,codePLATE;
   string R3_orig, R3_qual, R2_orig, R2_prefix, staggerME;
-	string RX1, RX2, QX1, QX2, PX1, PX1Q;
+	string RX1, RX2, QX1, QX2, PX1, PX1Q;   // ??? RX2, QX2 not used
 	//read type: correct, corrected, unclear
 	string read_type1, read_type2, read_type3;
 
@@ -376,6 +376,7 @@ int main (int argc, char* argv[])
 		getCode(I2, R3_orig, R3_qual, codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,staggerME,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
 //	    getCode(I2,codeB,codeD,RX2,QX2,read_type2,13, "B", "D", bc_B, bc_D);
 	} else {
+    // ??? nevedr reached
 		codeA="A00";
 		codeB="B00";
 		codeC="C00";
@@ -385,7 +386,7 @@ int main (int argc, char* argv[])
 		RX1="NNNNNNNNNNNNNNNNNNNNNNNNNNNN";   // ??? 28
 		RX2="NNNNNNNNNNNNNNNNNNNNNNNNNNNN";   // ??? 28
 		QX1="----------------------------";   // ??? 28
-		QX2="----------------------------";   // ??? 28
+		QX2="----------------------------";   // ??? 28 unused
 	}
 
 		//append BX tag
@@ -434,11 +435,11 @@ int main (int argc, char* argv[])
     unsigned int codeA_num = atoi(codeA_value.c_str());
     unsigned int clip_size=0;
     if (codeA_num > 0 &&  codeA_num <= 32)
-       clip_size = 17;
+       clip_size = 17;  // |A| 6
     else if (codeA_num > 32 && codeA_num <=64)
-       clip_size = 18;
+       clip_size = 18;  // |A| 7
     else
-       clip_size = 19;
+       clip_size = 19;  // |A| 8   
 
     string R2_orig_clipped = R2_orig.substr(clip_size, R2_orig.size()-clip_size+1);
 

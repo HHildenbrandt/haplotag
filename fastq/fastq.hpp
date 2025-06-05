@@ -1,4 +1,5 @@
-/* Copyright (c) 2025 Hanno Hildenbrandt <h.hildenbrandt@rug.nl>
+/* 
+ * Copyright (c) 2025 Hanno Hildenbrandt <h.hildenbrandt@rug.nl>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,13 +21,14 @@
 */
 
 #pragma once
-/*
-#include <stringzilla/stringzilla.hpp>
-namespace sz = ashvardanian::stringzilla;
-*/
+
+#include <string_view>
+#include <memory>
+
 
 namespace fastq {
 
   using str_view = std::string_view;
+  using chunk_ptr = std::shared_ptr<char[]>;
 
 }
