@@ -4,45 +4,66 @@
 #include <fastq/barcode.hpp>
 #include <fastq/reader.hpp>
 #include <fastq/splitter.hpp>
+#include <fastq/writer.hpp>
+#include "device/pool.hpp"
 
 
-struct barcode_json {
-  std::filesystem::path file;
-  std::string unclear_tag;
-  auto value(const std::filesystem::path& parent) { return fastq::barcode_t(parent / file, unclear_tag); }
-};
+namespace fs = std::filesystem;
 
-void from_json(const nlohmann::json& J, barcode_json& val) {
-  val.file = J.at("file").get<std::filesystem::path>();
-  val.unclear_tag = J.at("unclear_tag").get<std::string>();
-}
+
+// global thread-pool
+std::shared_ptr<hahi::pool_t> gPool{ new hahi::pool_t{unsigned(-1)} };
+
+
+#define optional_json(expr) try { expr; } catch (nlohmann::json::exception&) {}
 
 
 struct H4 {
   using Rsplitter = fastq::line_splitter<>;
   using Isplitter = fastq::seq_field_splitter<0b1010>;   // [RX, QX]
 
-  explicit H4(nlohmann::json& J) {
-    data_dir = J.at("data_dir").get<std::filesystem::path>();
-    auto bcJ = J.at("barcodes");
-    bc_A = bcJ.at("A").get<barcode_json>().value(data_dir);
-    bc_B = bcJ.at("B").get<barcode_json>().value(data_dir);
-    bc_C = bcJ.at("C").get<barcode_json>().value(data_dir);
-    bc_D = bcJ.at("D").get<barcode_json>().value(data_dir);
-    try { // optional
-      plate = bcJ.at("plate").get<barcode_json>().value(data_dir);
+  explicit H4(const fs::path& json_file) {
+    if (!fs::exists(json_file)) {
+      throw std::runtime_error("json files doesn't exists");
     }
-    catch (...) {}
-    stagger = bcJ.at("stagger").get<barcode_json>().value(data_dir);
-    auto ji = J.at("in");
-    R1 = std::make_unique<Rsplitter>(data_dir / ji.at("R1").get<std::filesystem::path>());
-    R2 = std::make_unique<Rsplitter>(data_dir / ji.at("R2").get<std::filesystem::path>());
-    R3 = std::make_unique<Rsplitter>(data_dir / ji.at("R3").get<std::filesystem::path>());
-    I1 = std::make_unique<Isplitter>(data_dir / ji.at("I1").get<std::filesystem::path>());
-    I2 = std::make_unique<Isplitter>(data_dir / ji.at("I2").get<std::filesystem::path>());
+    auto json_dir = json_file;
+    json_dir.remove_filename();
+    std::ifstream is(json_file);
+    auto J = nlohmann::json{};
+    is >> J;
+    auto jin = J.at("input");
+    data_dir = json_dir / jin.at("dir").get<fs::path>();
+    std::cout << data_dir << std::endl;
+    auto jbc = jin.at("barcodes");
+    auto gen_bc = [&](const char* L) {
+      return fastq::barcode_t{data_dir / jbc.at(L).at("file").get<fs::path>(), jbc.at(L).at("unclear_tag")};
+    };
+    bc_A = gen_bc("A");
+    bc_B = gen_bc("B");
+    bc_C = gen_bc("C");
+    bc_D = gen_bc("D");
+    optional_json(plate = gen_bc("plate"));
+    optional_json(stagger = gen_bc("stagger"));
+    R1 = Rsplitter{data_dir / jin.at("R1").get<fs::path>()};
+    optional_json(R2 = Rsplitter{data_dir / jin.at("R2").get<fs::path>()});
+    R3 = Rsplitter{data_dir / jin.at("R3").get<fs::path>()};
+    optional_json(I1 = Isplitter{data_dir / jin.at("I1").get<fs::path>()});
+    I2 = Isplitter{data_dir / jin.at("I2").get<fs::path>()};
+    
+    // sanity checks
+    if (1 == (I1.failed() + plate.empty())) {
+      throw std::runtime_error("only one of 'plate', 'I1' given");
+    }
+    if (1 == (R2.failed() + stagger.empty())) {
+      throw std::runtime_error("only one of 'stagger', 'R2' given");
+    }
+    
+    auto jout = J.at("output");    
+    out_dir = json_dir / jout.at("dir").get<fs::path>();
+    R1_out.reset(new fastq::writer_t<>{out_dir/ jout.at("R1").get<fs::path>(), gPool});
+    R2_out.reset(new fastq::writer_t<>{out_dir/ jout.at("R2").get<fs::path>(), gPool});
   }
 
-  std::filesystem::path data_dir;
   fastq::barcode_t bc_A;
   fastq::barcode_t bc_B;
   fastq::barcode_t bc_C;
@@ -50,28 +71,73 @@ struct H4 {
   fastq::barcode_t plate;
   fastq::barcode_t stagger;
 
-  std::unique_ptr<Rsplitter> R1;
-  std::unique_ptr<Rsplitter> R2;
-  std::unique_ptr<Rsplitter> R3;
-  std::unique_ptr<Isplitter> I1;
-  std::unique_ptr<Isplitter> I2;
+  Rsplitter R1;
+  Rsplitter R2;
+  Rsplitter R3;
+  Isplitter I1;
+  Isplitter I2;
+
+  std::unique_ptr<fastq::writer_t<>> R1_out;
+  std::unique_ptr<fastq::writer_t<>> R2_out;
+
+  bool clipping = false;
+  fs::path data_dir;
+  fs::path out_dir;
 };
 
- 
+
+void dry_run(H4 h4) {
+  using std::cout;
+  auto bc_stats = [](const char* name, const auto& bc) { 
+    cout << name << "  ";
+    if (bc.empty()) {
+      cout << "not given, ignored\n";
+      return;
+    }
+    cout << '"' << bc.unclear_tag() << "\"  "
+         << bc.size() << "  "
+         << '[' << bc.min_code_length() << ", " << bc.max_code_length() << "]  "
+         << bc.path()
+         << '\n';
+  };
+  cout << "barcodes\n";
+  bc_stats("    bc_A   ", h4.bc_A);
+  bc_stats("    bc_B   ", h4.bc_B);
+  bc_stats("    bc_C   ", h4.bc_C);
+  bc_stats("    bc_D   ", h4.bc_D);
+  bc_stats("    plate  ", h4.plate);
+  bc_stats("    stagger", h4.stagger);
+
+  auto gz_stats = [](const char* name, const auto& gz) {
+    cout << name << "  ";
+    if (gz.failed()) cout << "not given, ignored\n";
+    else cout << gz.reader().path() << '\n';
+  };
+  cout << "fastq.gz files:\n";
+  gz_stats("   R1", h4.R1);
+  gz_stats("   R2", h4.R2);
+  gz_stats("   R3", h4.R3);
+  gz_stats("   I1", h4.I1);
+  gz_stats("   I2", h4.I2);
+
+  cout << "matches\n";
+  const auto ctl = h4.bc_D.max_code_length()
+                 + 1
+                 + h4.bc_B.max_code_length()
+                 + h4.bc_A.max_code_length()
+                 + 1
+                 + h4.bc_C.max_code_length();
+  cout << "  code_total_length: " << ctl << '\n';
+}
+
 
 int main(int argc, const char** argv) {
   try {
-    std::filesystem::path json_file{"../src/H4.json"}; // default for debugging
+    fs::path json_file{"../src/H4.json"}; // default for debugging
     if (argc > 1) {
       json_file = argv[1];
     }
-    if (!std::filesystem::exists(json_file)) {
-      throw std::runtime_error("json file doesn't exists");
-    }
-    std::ifstream is(json_file);
-    auto J = nlohmann::json{};
-    is >> J;
-    auto h4 = H4(J);
+    dry_run(H4(fs::current_path() / json_file));
     return 0;
   }
   catch (std::exception& err) {

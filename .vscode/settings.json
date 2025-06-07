@@ -80,6 +80,16 @@
         "unordered_set": "cpp",
         "set": "cpp",
         "version": "cpp",
-        "__memory": "cpp"
+        "__memory": "cpp",
+        "any": "cpp",
+        "charconv": "cpp",
+        "csignal": "cpp",
+        "forward_list": "cpp",
+        "regex": "cpp",
+        "format": "cpp",
+        "numbers": "cpp",
+        "ranges": "cpp",
+        "cinttypes": "cpp",
+        "valarray": "cpp"
     }
 }

@@ -59,7 +59,7 @@ namespace fastq {
         tag_(line.substr(0, line.find_first_of("\t ")))   // tab or space
       {
         if (tag_.empty() || code_.empty()) {
-          throw std::runtime_error("corrupt barcode file");
+          throw std::runtime_error("corrupted barcode line");
         }
       }
 
@@ -77,31 +77,37 @@ namespace fastq {
     // barcode_t& operator=(barcode_t&) = delete;
     barcode_t() {}
 
-    explicit barcode_t(const std::filesystem::path& path, std::string unclear_tag = {}) {
-      auto is = std::ifstream(path);
-      auto lines = std::vector<std::string>{};
-      std::string line{};
-      while (is) {
-        std::getline(is, line);
-        if (!line.empty()) lines.push_back(std::move(line));  // last line allowed to be '\n'
-      }
-      if (lines.empty()) throw std::runtime_error("corrupted barcode file");
-      const auto probe = entry_t(lines[0]);
-      if (unclear_tag.empty()) {
-        unclear_tag = std::string{probe.code_letter()} + std::string(probe.tag().length() - 1, '0');
-      }
-      unclear_tag_ = unclear_tag;
-      for (const auto& line : lines) {
-        auto& bc = bc_.emplace_back(line);
-        if (bc.tag() == unclear_tag) {
-          throw std::runtime_error("duplicated dummy-tag in barcode file.");
+    explicit barcode_t(const std::filesystem::path& path, std::string unclear_tag = {}) : path_(path) {
+      try {
+        auto is = std::ifstream(path);
+        auto lines = std::vector<std::string>{};
+        std::string line{};
+        while (is) {
+          std::getline(is, line);
+          if (!line.empty()) lines.push_back(std::move(line));  // last line allowed to be '\n'
         }
-        min_code_length_ = std::min(min_code_length_, bc.code().length());
-        max_code_length_ = std::max(max_code_length_, bc.code().length());
+        if (lines.empty()) throw std::runtime_error("doesn't exist or corrupted");
+        const auto probe = entry_t(lines[0]);
+        if (unclear_tag.empty()) {
+          unclear_tag = std::string{probe.code_letter()} + std::string(probe.tag().length() - 1, '0');
+        }
+        unclear_tag_ = unclear_tag;
+        for (const auto& line : lines) {
+          auto& bc = bc_.emplace_back(line);
+          if (bc.tag() == unclear_tag) {
+            throw std::runtime_error("duplicated dummy-tag.");
+          }
+          min_code_length_ = std::min(min_code_length_, bc.code().length());
+          max_code_length_ = std::max(max_code_length_, bc.code().length());
+        }
+      }
+      catch (const std::exception& err) {
+        throw std::runtime_error(path.string() + ": " + err.what());
       }
     }
 
-    size_t size() const { return bc_.size();}
+    bool empty() const noexcept { return bc_.empty();}
+    size_t size() const noexcept { return bc_.size();}
     size_t min_code_length() const noexcept { return min_code_length_; }
     size_t max_code_length() const noexcept { return max_code_length_; }
     
@@ -113,12 +119,14 @@ namespace fastq {
     auto data() const { return bc_.data(); }
     
     const std::string& unclear_tag() const noexcept { return unclear_tag_; }
+    const std::filesystem::path& path() const noexcept { return path_; }
 
   private:
     std::vector<entry_t> bc_;
     std::string unclear_tag_;
     size_t min_code_length_ = 1'000'000;
     size_t max_code_length_ = 0;
+    std::filesystem::path path_;
   };
 
 

@@ -10,11 +10,7 @@
 
 namespace cu {
 
-  template <typename T>
   struct chunk_allocator {
-    static_assert(std::is_trivially_constructible_v<T>);
-    static_assert(std::is_trivially_destructible_v<T>);
-
     static void* alloc(size_t bytes) { 
       void* ptr; 
       if (cudaSuccess != cudaMallocManaged(&ptr, bytes)) {
@@ -35,7 +31,7 @@ namespace cu {
   };
 
 
-  using reader_t = fastq::detail::reader_t<chunk_allocator<char>, 16 * 1024, 16 * 1024 * 1024>;
+  using reader_t = fastq::detail::reader_t<chunk_allocator, 16 * 1024, 16 * 1024 * 1024>;
 
 
   __host__ __device__
@@ -150,7 +146,7 @@ namespace cu {
   void launch_blk_edit_distance(auto& blk, str_view* dbc, size_t nbc, size_t* ed_out) {
     auto drx = make_device_ptr<str_view>(blk.data(), blk.size());
     dim3 numBlocks(blk.size() / 256);
-    blk_edit_distance<<<numBlocks, 256>>>(drx.get(), blk.size(), dbc, nbc, ed_out);
+    nop<<<numBlocks, 256>>>(drx.get(), blk.size(), dbc, nbc, ed_out);
   }
 
 }

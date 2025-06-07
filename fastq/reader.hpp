@@ -94,6 +94,10 @@ namespace fastq {
       static constexpr unsigned gz_buffer = GzBuffer;
       using allocator_t = Allocator;
 
+      reader_t() = default;
+      reader_t(reader_t&&) = default;
+      reader_t& operator=(reader_t&&) = default;
+      
       explicit reader_t(const std::filesystem::path& path) : path_(path) {
         if (nullptr == (gzin_ = gzopen(path.string().c_str(), "rb"))) {
           throw std::runtime_error("fastq::reader_t: failed to open input file");

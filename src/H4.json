@@ -1,40 +1,42 @@
 {
-    "data_dir": "../data/",
-    "barcodes": {
-        "A": {
-            "file": "BC_A_H4.txt",
-            "unclear_tag": "A00"
+    "input": {
+        "dir": "../data",
+        "barcodes": {
+            "A": {
+                "file": "BC_A_H4.txt",
+                "unclear_tag": "A00"
+            },
+            "B": {
+                "file": "BC_B.txt",
+                "unclear_tag": "B00"
+            },
+            "C": {
+                "file": "BC_C_H4.txt",
+                "unclear_tag": "C00"
+            },
+            "D": {
+                "file": "BC_D.txt",
+                "unclear_tag": "D00"
+            },
+            "plate": {
+                "file": "Plate_BC_8.txt",
+                "unclear_tag": "P00"
+            },
+            "~stagger": {
+                "file": "BC_ME.txt",
+                "unclear_tag": "S9"
+            }
         },
-        "B": {
-            "file": "BC_B.txt",
-            "unclear_tag": "B00"
-        },
-        "C": {
-            "file": "BC_C_H4.txt",
-            "unclear_tag": "C00"
-        },
-        "D": {
-            "file": "BC_D.txt",
-            "unclear_tag": "D00"
-        },
-        "~plate": {
-            "file": "Plate_BC_8.txt",
-            "unclear_tag": "P00"
-        },
-        "stagger": {
-            "file": "BC_ME.txt",
-            "unclear_tag": "S9"
-        }
-    },
-    "in": {
         "R1": "_gen_test_H4_R1_001.fastq.gz",
-        "R2": "_gen_test_H4_R4_001.fastq.gz",
+        "~R2": "_gen_test_H4_R4_001.fastq.gz",
         "R3": "_gen_test_R3_001.fastq.gz",
         "I1": "_gen_test_H4_I1_001.fastq.gz",
         "I2": "_gen_test_H4_R2_001.fastq.gz"
     },
-    "out": {
-        "R1": "_gen__R1_001.fastq.gz",
-        "R2": "_gen__R2_001.fastq.gz"
+    "output": {
+        "dir": "../data",
+        "clipping": true,
+        "R1": "__gen_test_R1_001.fastq.gz",
+        "R2": "__gen_test_R2_001.fastq.gz"
     }
 }

@@ -5,7 +5,7 @@
  *      Authors: Andreea Dreau, https://github.com/adreau
  *               Frank Chan, https://github.com/evolgenomics
  */
-
+#include <cassert>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -171,6 +171,9 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
   for(int i=0;i<2;i++)
     getline(I2, line);
 	line=line.append(R3_orig);
+  if (sstagger > 3) {
+    int dummy = 0;
+  }
 
 	RX1=line;
 
@@ -206,6 +209,7 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
 		codeA_inFile=line.substr(13,6+sstagger);  // ??? 13 = |bc1| + 1 + |bc2|
  //   cout<< "Passed stagger: " << stagger_passed << endl;
  //   cout<< "A match: " << line.substr(13,6+sstagger) << endl;
+    assert(6+sstagger == codeA_inFile.length());
 		a=bc3.find(codeA_inFile);
     if(a==bc3.end()){
       // ??? bc3 contains codes x of |6|, |7| and |8|
@@ -218,7 +222,7 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
 	
   // ??? codeA_inFile codeC_inFile flushed (nothing skipped).
 	//Deal with the staggered_C
-		codeC_inFile=line.substr(19+sstagger+1,7);
+		codeC_inFile=line.substr(19+sstagger+1,7);    // ??? missing in code_total_length
     //cout<< "C match: " << line.substr(19+sstagger+1) << endl;
     c=bc4.find(codeC_inFile);
     if(c==bc4.end()){

@@ -114,11 +114,15 @@ namespace fastq {
   public:
     using value_type = ChunkSplitter::value_type;
     using blk_type = blk_reads_t<value_type>;
-    
+
+    base_splitter() = default;
+    base_splitter(base_splitter&&) = default;
+    base_splitter& operator=(base_splitter&&) = default;
+
     explicit base_splitter(const std::filesystem::path& path) : reader_(std::make_shared<Reader>(path)) {}
 
     bool eof() const noexcept { return last_ && chunk_splitter_.empty(); }
-    bool failed() const noexcept { return reader_->failed(); }
+    bool failed() const noexcept { return !reader_ || reader_->failed(); }
     const Reader& reader() const noexcept { return *reader_.get(); }
 
     // returns view into memory we don't own
