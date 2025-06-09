@@ -9,13 +9,14 @@
 
 
 namespace fs = std::filesystem;
+using json = nlohmann::json;
 
 
 // global thread-pool
 std::shared_ptr<hahi::pool_t> gPool{ new hahi::pool_t{unsigned(-1)} };
 
 
-#define optional_json(expr) try { expr; } catch (nlohmann::json::exception&) {}
+#define optional_json(expr) try { expr; } catch (json::exception&) {}
 
 
 struct H4 {
@@ -29,11 +30,9 @@ struct H4 {
     auto json_dir = json_file;
     json_dir.remove_filename();
     std::ifstream is(json_file);
-    auto J = nlohmann::json{};
-    is >> J;
+    auto J = json::parse(is, nullptr, true, /* ignore_comments */ true);
     auto jin = J.at("input");
     data_dir = json_dir / jin.at("dir").get<fs::path>();
-    std::cout << data_dir << std::endl;
     auto jbc = jin.at("barcodes");
     auto gen_bc = [&](const char* L) {
       return fastq::barcode_t{data_dir / jbc.at(L).at("file").get<fs::path>(), jbc.at(L).at("unclear_tag")};
@@ -91,7 +90,7 @@ void dry_run(H4 h4) {
   auto bc_stats = [](const char* name, const auto& bc) { 
     cout << name << "  ";
     if (bc.empty()) {
-      cout << "not given, ignored\n";
+      cout << "NA\n";
       return;
     }
     cout << '"' << bc.unclear_tag() << "\"  "
@@ -110,15 +109,15 @@ void dry_run(H4 h4) {
 
   auto gz_stats = [](const char* name, const auto& gz) {
     cout << name << "  ";
-    if (gz.failed()) cout << "not given, ignored\n";
+    if (gz.failed()) cout << "NA\n";
     else cout << gz.reader().path() << '\n';
   };
   cout << "fastq.gz files:\n";
-  gz_stats("   R1", h4.R1);
-  gz_stats("   R2", h4.R2);
-  gz_stats("   R3", h4.R3);
-  gz_stats("   I1", h4.I1);
-  gz_stats("   I2", h4.I2);
+  gz_stats("    R1", h4.R1);
+  gz_stats("    R2", h4.R2);
+  gz_stats("    R3", h4.R3);
+  gz_stats("    I1", h4.I1);
+  gz_stats("    I2", h4.I2);
 
   cout << "matches\n";
   const auto ctl = h4.bc_D.max_code_length()
