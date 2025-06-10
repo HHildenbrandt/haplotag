@@ -93,7 +93,7 @@ void dry_run(H4 h4) {
       cout << "NA\n";
       return;
     }
-    cout << '"' << bc.unclear_tag() << "\"  "
+    cout << '"' << bc[0].tag << "\"  "
          << bc.size() << "  "
          << '[' << bc.min_code_length() << ", " << bc.max_code_length() << "]  "
          << bc.path()

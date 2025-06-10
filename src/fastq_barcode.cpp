@@ -14,7 +14,7 @@ int main() {
 
 
     for (auto& bc : bc_A) {
-      std::cout << bc.code_letter() << "  " << bc.tag() << " " << bc.code() << '\n';
+      std::cout << bc.tag << " " << bc.code << '\n';
     }
     std::cout << "min code length: " << bc_A.min_code_length() << "  max code length: " << bc_A.max_code_length() << '\n';
     return 0;

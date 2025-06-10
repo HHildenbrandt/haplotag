@@ -153,8 +153,8 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
 
   // ??? bc1 = bc_B, bc2 = bc_D, bc3 = bc_A, bc4 = bc_C
 	read_type1="correct";
-	read_type2="correct";
-
+	read_type2="correct";   // ??? const 
+  
   string line;
 	string codeB_inFile,codeD_inFile,codeA_inFile,codeC_inFile;
   map<string,string>::iterator b;
@@ -368,7 +368,7 @@ int main (int argc, char* argv[])
 	//Get the first read from Read2 to figure out what the stagger should be
 	getline(R2, R2_orig);
   // ??? 10 <-> BC_ME.txt code length
-	R2_prefix=R2_orig.substr(0,10);
+	R2_prefix=R2_orig.substr(0,10);   // ??? unchecked |R2_orig|
 	getStagger(R2_prefix,staggerME,10, bc_ME);
     stagger_num=staggerME.substr(1,1);
 	ss << stagger_num;
@@ -380,7 +380,7 @@ int main (int argc, char* argv[])
 		getCode(I2, R3_orig, R3_qual, codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,staggerME,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
 //	    getCode(I2,codeB,codeD,RX2,QX2,read_type2,13, "B", "D", bc_B, bc_D);
 	} else {
-    // ??? nevedr reached
+    // ??? never reached
 		codeA="A00";
 		codeB="B00";
 		codeC="C00";
@@ -443,7 +443,7 @@ int main (int argc, char* argv[])
     else if (codeA_num > 32 && codeA_num <=64)
        clip_size = 18;  // |A| 7
     else
-       clip_size = 19;  // |A| 8   
+       clip_size = 19;  // |A| 0|8   
 
     string R2_orig_clipped = R2_orig.substr(clip_size, R2_orig.size()-clip_size+1);
 

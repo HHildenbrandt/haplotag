@@ -54,23 +54,8 @@ namespace fastq {
   class barcode_t {
   public:
     struct entry_t {
-      explicit entry_t(const std::string& line)
-      : code_(line.substr(line.find_last_of("\t ") + 1)), // tab or space
-        tag_(line.substr(0, line.find_first_of("\t ")))   // tab or space
-      {
-        if (tag_.empty() || code_.empty()) {
-          throw std::runtime_error("corrupted barcode line");
-        }
-      }
-
-      char code_letter() const noexcept { return tag_[0]; }
-      const std::string& code() const noexcept { return code_; }
-      const std::string& tag() const noexcept { return tag_; }
-
-    private:
-      friend class barcode_t;
-      const std::string code_;
-      const std::string tag_;
+      std::string tag;
+      std::string code;
     };
 
     // barcode_t(barcode_t&) = delete;
@@ -84,22 +69,26 @@ namespace fastq {
         std::string line{};
         while (is) {
           std::getline(is, line);
-          if (!line.empty()) lines.push_back(std::move(line));  // last line allowed to be '\n'
-        }
-        if (lines.empty()) throw std::runtime_error("doesn't exist or corrupted");
-        const auto probe = entry_t(lines[0]);
-        if (unclear_tag.empty()) {
-          unclear_tag = std::string{probe.code_letter()} + std::string(probe.tag().length() - 1, '0');
-        }
-        unclear_tag_ = unclear_tag;
-        for (const auto& line : lines) {
-          auto& bc = bc_.emplace_back(line);
-          if (bc.tag() == unclear_tag) {
-            throw std::runtime_error("duplicated dummy-tag.");
+          // last line allowed to be '\n' 
+          if (!line.empty()){ 
+            lines.push_back(std::move(line));
           }
-          min_code_length_ = std::min(min_code_length_, bc.code().length());
-          max_code_length_ = std::max(max_code_length_, bc.code().length());
         }
+        if (lines.empty()) throw std::runtime_error("doesn't exist or is corrupted");
+        bc_.emplace_back();   // placeholder unclear
+        for (const auto& line : lines) {
+          const auto p0 = line.find_first_of(" \t");  // space or tab
+          if (p0 == line.npos) throw std::runtime_error("corrupted line");
+          auto& bc = bc_.emplace_back(entry_t{.tag = line.substr(0, p0), .code = line.substr(p0 + 1)});
+          min_code_length_ = std::min(min_code_length_, bc.code.length());
+          max_code_length_ = std::max(max_code_length_, bc.code.length());
+        }
+        if (unclear_tag.empty()) {
+          // create heuristic 'code_letter' 0+ tag
+          unclear_tag = std::string(bc_[1].tag.size(), '0');
+          unclear_tag[0] = bc_[1].tag[0];
+        }
+        bc_[0].tag = unclear_tag;
       }
       catch (const std::exception& err) {
         throw std::runtime_error(path.string() + ": " + err.what());
@@ -111,6 +100,7 @@ namespace fastq {
     size_t min_code_length() const noexcept { return min_code_length_; }
     size_t max_code_length() const noexcept { return max_code_length_; }
     
+    // idx == 0 returns unclear_tag
     const entry_t& operator[](size_t idx) const { return bc_[idx];}
     auto begin() const { return bc_.begin(); }
     auto cbegin() const { return bc_.cbegin(); }
@@ -118,12 +108,11 @@ namespace fastq {
     auto cend() const { return bc_.cend(); }
     auto data() const { return bc_.data(); }
     
-    const std::string& unclear_tag() const noexcept { return unclear_tag_; }
+    //const std::string& unclear_tag() const noexcept { return unclear_tag_; }
     const std::filesystem::path& path() const noexcept { return path_; }
 
   private:
     std::vector<entry_t> bc_;
-    std::string unclear_tag_;
     size_t min_code_length_ = 1'000'000;
     size_t max_code_length_ = 0;
     std::filesystem::path path_;
