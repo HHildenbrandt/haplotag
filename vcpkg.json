@@ -12,10 +12,6 @@
       "host": true
     },
     "zlib",
-    {
-      "name": "stringzilla",
-      "host": true
-    },
     "nlohmann-json"
   ]
 }
