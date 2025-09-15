@@ -25,7 +25,7 @@ struct H4 {
 
   explicit H4(const fs::path& json_file) {
     if (!fs::exists(json_file)) {
-      throw std::runtime_error("json files doesn't exists");
+      throw std::runtime_error("json file doesn't exists");
     }
     auto json_dir = json_file;
     json_dir.remove_filename();
@@ -35,7 +35,9 @@ struct H4 {
     data_dir = json_dir / jin.at("dir").get<fs::path>();
     auto jbc = jin.at("barcodes");
     auto gen_bc = [&](const char* L) {
-      return fastq::barcode_t{data_dir / jbc.at(L).at("file").get<fs::path>(), jbc.at(L).at("unclear_tag")};
+      auto bc = fastq::barcode_t{data_dir / jbc.at(L).at("file").get<fs::path>(), jbc.at(L).at("unclear_tag")};
+      optional_json(bc.reset_code_letter(jbc.at(L).at("code_letter").get<std::string>()[0]));
+      return bc;
     };
     bc_A = gen_bc("A");
     bc_B = gen_bc("B");

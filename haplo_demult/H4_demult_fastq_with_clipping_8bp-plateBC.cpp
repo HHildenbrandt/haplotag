@@ -413,7 +413,7 @@ int main (int argc, char* argv[])
 		name=name.append("\tRX:Z:");
 		name=name.append(RX1);
 		name=name.append("+");
-                name=name.append(PX1);
+    name=name.append(PX1);
 		//name=name.append("+");
 		//name=name.append(RX2);
 

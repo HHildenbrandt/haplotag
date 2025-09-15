@@ -20,7 +20,8 @@
             },
             "plate": {
                 "file": "Plate_BC_8.txt",
-                "unclear_tag": "P00"
+                "unclear_tag": "P00",
+                "code_letter": "P"
             },
             "stagger": {
                 "file": "BC_ME.txt",

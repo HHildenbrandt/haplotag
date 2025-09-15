@@ -100,10 +100,10 @@ blk_fuzzy_out_t blk_fuzzy(Isplitter::blk_type&& I1, Isplitter::blk_type&& I2) {
     auto I1_RX = I1[i][IRX];
     auto I2_RX = I2[i][IRX];
     match_t matches[] = {
-      min_edit_distance(save_substr(I1_RX, 7, 6), bc_A),
-      min_edit_distance(save_substr(I1_RX, 0, 6), bc_C),
-      min_edit_distance(save_substr(I2_RX, 7, 6), bc_B),
-      min_edit_distance(save_substr(I2_RX, 0, 6), bc_D)
+      min_edit_distance(max_substr(I1_RX, 7, 6), bc_A),
+      min_edit_distance(max_substr(I1_RX, 0, 6), bc_C),
+      min_edit_distance(max_substr(I2_RX, 7, 6), bc_B),
+      min_edit_distance(max_substr(I2_RX, 0, 6), bc_D)
     };
 #if defined(DEMULT_DASTQ_BEHAVIOUR)
     if ((matches[0].read_type == unclear) || (matches[1].read_type == unclear)) {

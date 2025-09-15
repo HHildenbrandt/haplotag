@@ -23,6 +23,7 @@
 #pragma once
 
 #include <string_view>
+#include <algorithm>
 #include <memory>
 
 
@@ -30,5 +31,24 @@ namespace fastq {
 
   using str_view = std::string_view;
   using chunk_ptr = std::shared_ptr<char[]>;
+
+
+  // returns exhaustiv str_view if [pos, pos+length()) is out of bounds
+  inline str_view max_substr(str_view str, 
+                             size_t pos) noexcept {
+    auto first = str.data() + pos;
+    auto last = str.data() + str.length();
+    return { std::min(first, last), last };
+  }
+
+
+  // returns exhaustiv str_view if [pos, pos+count) is out of bounds
+  inline str_view max_substr(str_view str, 
+                             size_t pos,
+                             size_t count) noexcept {
+    auto first = str.data() + pos;
+    auto last = str.data() + str.length();
+    return { std::min(first, last), std::min(first + count, last) };
+  }
 
 }

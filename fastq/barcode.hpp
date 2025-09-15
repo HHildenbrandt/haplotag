@@ -37,18 +37,6 @@
 namespace fastq {
 
 
-  // returns empty string_view if [pos, pos+count) is out of bounds
-  inline str_view save_substr(str_view str, 
-              size_t pos,
-              size_t count = str_view::npos) noexcept {
-    if (pos > str.length()) [[unlikely]] return {};
-    auto rlen = std::min(str.length() - pos, count);
-    if ((count != str_view::npos) && (rlen < count)) return {};
-    auto x = str_view{ str.data() + pos, rlen };
-    return x;
-  }
-  
-
   // barcode file reader
   // more general: <tag, code> file reader
   class barcode_t {
@@ -92,6 +80,13 @@ namespace fastq {
       }
       catch (const std::exception& err) {
         throw std::runtime_error(path.string() + ": " + err.what());
+      }
+    }
+
+    // replace first tag-character with code_letter
+    void reset_code_letter(char code_letter) {
+      for (auto& e : bc_) {
+        e.tag[0] = code_letter;
       }
     }
 
