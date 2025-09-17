@@ -58,12 +58,15 @@ struct H4 {
     if (1 == (R2.failed() + stagger.empty())) {
       throw std::runtime_error("only one of 'stagger', 'R2' given");
     }
-    
+   
     auto jout = J.at("output");    
     out_dir = json_dir / jout.at("dir").get<fs::path>();
     R1_out.reset(new fastq::writer_t<>{out_dir/ jout.at("R1").get<fs::path>(), gPool});
     R2_out.reset(new fastq::writer_t<>{out_dir/ jout.at("R2").get<fs::path>(), gPool});
   }
+ 
+  bool has_stagger() const noexcept { return !stagger.empty(); }
+  bool has_plate() const noexcept { return !plate.empty(); }
 
   fastq::barcode_t bc_A;
   fastq::barcode_t bc_B;
@@ -87,7 +90,7 @@ struct H4 {
 };
 
 
-void dry_run(H4 h4) {
+void dry_run(const H4& h4) {
   using std::cout;
   auto bc_stats = [](const char* name, const auto& bc) { 
     cout << name << "  ";
@@ -114,7 +117,7 @@ void dry_run(H4 h4) {
     if (gz.failed()) cout << "NA\n";
     else cout << gz.reader().path() << '\n';
   };
-  cout << "fastq.gz files:\n";
+  cout << "fastq.gz files\n";
   gz_stats("    R1", h4.R1);
   gz_stats("    R2", h4.R2);
   gz_stats("    R3", h4.R3);
@@ -128,7 +131,10 @@ void dry_run(H4 h4) {
                  + h4.bc_A.max_code_length()
                  + 1
                  + h4.bc_C.max_code_length();
-  cout << "  code_total_length: " << ctl << '\n';
+  cout << "    code_total_length  " << ctl << '\n';
+  cout << "output\n";
+  cout << "    R1  " << h4.R1_out->path() << '\n';
+  cout << "    R2  " << h4.R2_out->path() << '\n';
 }
 
 
@@ -138,7 +144,8 @@ int main(int argc, const char** argv) {
     if (argc > 1) {
       json_file = argv[1];
     }
-    dry_run(H4(fs::current_path() / json_file));
+    auto h4 = H4{fs::current_path() / json_file};
+    dry_run(h4);
     return 0;
   }
   catch (std::exception& err) {

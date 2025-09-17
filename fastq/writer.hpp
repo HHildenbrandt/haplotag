@@ -134,7 +134,8 @@ namespace fastq {
     writer_t(const std::filesystem::path& output, std::shared_ptr<hahi::pool_t> pool, unsigned num_threads = -1) 
     : in_chunks_{chunks},
       num_threads_(num_threads),
-      shpool_(pool)
+      shpool_(pool),
+      output_(output)
     {
       if (num_threads_ == -1) num_threads_ = pool->num_threads();
       num_threads_ = std::clamp(num_threads_, 1u, pool->num_threads());
@@ -152,6 +153,7 @@ namespace fastq {
       }
     }
 
+    const auto& path() const noexcept { return output_; }
     bool failed() const noexcept { return !!eptr_; }
     bool closed() const noexcept { return closed_; }
     
@@ -298,6 +300,7 @@ namespace fastq {
     std::shared_ptr<hahi::pool_t> shpool_;
     std::atomic<size_t> tot_bytes_written_ = 0;
     std::thread compressor_;
+    const std::filesystem::path output_;
   };
 
 }
