@@ -33,7 +33,7 @@ int main(int argc, const char* argv[]) {
     bool tail = false;
     bool seq = false;
     std::filesystem::path input;
-    std::string range_str{};
+    std::string range_str{"0-10"};
     int i = 1;
     while (i < argc) {
       if (0 == std::strcmp(argv[i], "-t")) {
