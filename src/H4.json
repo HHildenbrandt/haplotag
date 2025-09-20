@@ -1,7 +1,8 @@
 {
+    "root": "/home/hanno/haplotag/scratch/hb-1000G_str/pilot/",
     "input": {
-        "dir": "../data",
         "barcodes": {
+            "prefix": "",
             "A": {
                 "file": "BC_A_H4.txt",
                 "unclear_tag": "A00"
@@ -28,16 +29,19 @@
                 "unclear_tag": "S9"
             }
         },
-        "R1": "_gen_test_H4_R1_001.fastq.gz",
-        "R2": "_gen_test_H4_R4_001.fastq.gz",
-        "R3": "_gen_test_R3_001.fastq.gz",
-        "I1": "_gen_test_H4_I1_001.fastq.gz",
-        "I2": "_gen_test_H4_R2_001.fastq.gz"
+        "fastq": {
+            "prefix": "raw_fastq/Pilot-1_H4_subset.",
+            "R1": "R1_001.fastq.gz",
+            "R2": "R4_001.fastq.gz",
+            "R3": "R3_001.fastq.gz",
+            "I1": "I1_001.fastq.gz",
+            "I2": "R2_001.fastq.gz"
+        }
     },
     "output": {
-        "dir": "../data",
+        "prefix": "raw_fastq/Pilot-1_H4_subset.out.",
         "clipping": true,
-        "R1": "__gen_test_R1_001.fastq.gz",
-        "R2": "__gen_test_R2_001.fastq.gz"
+        "R1": "R1_001.fastq.gz",
+        "R2": "R2_001.fastq.gz"
     }
 }

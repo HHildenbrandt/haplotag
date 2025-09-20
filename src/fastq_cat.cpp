@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <charconv>
 #include <array>
 #include <fastq/reader.hpp>
@@ -7,12 +8,11 @@
 
 constexpr char usage_msg[] = R"(Usage: fastq_cat [OPTION] [FILE]
 
-  -m <mssk>: only output unmasked lines
+  -m <mssk>: only output unmasked lines (max. 64Bit)
     Ex: -m 1001
   -n: show line numbers
   -r <line range>: only output lines in given range
     Ex: -r 0-10; -r 10:3
-  -t: output tail 
 )";
 
 
@@ -45,7 +45,7 @@ std::pair<uint64_t, int> parse_mask(std::string_view str) {
 }
 
 
-void cat(std::pair<size_t, size_t> range, std::pair<uint64_t, int> mask, const std::filesystem::path& file) {
+void cat(std::pair<size_t, size_t> range, std::pair<uint64_t, int> mask, bool line_nums, const std::filesystem::path& file) {
   auto splitter = fastq::line_splitter<>(file);
   for (size_t i = 0; !splitter.eof() && (i < range.first); ++i) {
     splitter();
@@ -54,6 +54,9 @@ void cat(std::pair<size_t, size_t> range, std::pair<uint64_t, int> mask, const s
   for (size_t i = range.first; !splitter.eof() && (i < range.second); ++i) {
     auto line = splitter();
     if (m.first & 1) {
+      if (line_nums) {
+        std::cout << std::setw(6) << i << ' ';
+      }
       std::cout << line << '\n';
     }
     m.first >>= 1;
@@ -65,9 +68,8 @@ void cat(std::pair<size_t, size_t> range, std::pair<uint64_t, int> mask, const s
 
 
 int main(int argc, const char* argv[]) {
-  auto x = parse_mask("1011");
   try {
-    bool tail = false;
+    bool line_nums = false;
     std::pair<size_t, size_t> range{0, -1};
     std::pair<uint64_t, int> mask{-1, 64};
     std::filesystem::path file;
@@ -76,8 +78,8 @@ int main(int argc, const char* argv[]) {
       if (0 == std::strcmp(argv[i], "-h") * std::strcmp(argv[i], "--help")) {
         throw usage_msg;
       }
-      if (0 == std::strcmp(argv[i], "-t")) {
-        tail = true;
+      if (0 == std::strcmp(argv[i], "-n")) {
+        line_nums = true;
       }
       else if (0 == std::strcmp(argv[i], "-r")) {
         range = parse_range((++i < argc) ? argv[i] : "");
@@ -88,13 +90,12 @@ int main(int argc, const char* argv[]) {
       else if (std::filesystem::is_regular_file(argv[i])) {
         file = argv[i];
       }
-      else throw "unknown argument";
       ++i;
     }
     if (file.empty()) {
       throw "file not given or inaccessible";
     }
-    cat(range, mask, file);
+    cat(range, mask, line_nums, file);
     return 0;
   }
   catch (const char* err) {

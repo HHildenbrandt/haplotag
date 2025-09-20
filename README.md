@@ -1,5 +1,10 @@
 # haplotag
 
+## data
+
+`/scratch/hb-1000G_str/pilot/raw_fastq`
+
+
 All you need to know about zlib: [Mark Adler's zlib repository](https://github.com/madler/zlib/tree/develop)
 
 ```

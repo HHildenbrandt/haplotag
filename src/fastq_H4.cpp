@@ -27,15 +27,16 @@ struct H4 {
     if (!fs::exists(json_file)) {
       throw std::runtime_error("json file doesn't exists");
     }
-    auto json_dir = json_file;
-    json_dir.remove_filename();
     std::ifstream is(json_file);
     auto J = json::parse(is, nullptr, true, /* ignore_comments */ true);
+    auto root = J.at("root").get<fs::path>();
+    std::cout << root << '\n';
     auto jin = J.at("input");
-    data_dir = json_dir / jin.at("dir").get<fs::path>();
     auto jbc = jin.at("barcodes");
+    auto bc_prefix = root / jbc.at("prefix").get<std::string>();
+    std::cout << bc_prefix << '\n';
     auto gen_bc = [&](const char* L) {
-      auto bc = fastq::barcode_t{data_dir / jbc.at(L).at("file").get<fs::path>(), jbc.at(L).at("unclear_tag")};
+      auto bc = fastq::barcode_t{bc_prefix / jbc.at(L).at("file").get<std::string>(), jbc.at(L).at("unclear_tag")};
       optional_json(bc.reset_code_letter(jbc.at(L).at("code_letter").get<std::string>()[0]));
       return bc;
     };
@@ -45,11 +46,13 @@ struct H4 {
     bc_D = gen_bc("D");
     optional_json(plate = gen_bc("plate"));
     optional_json(stagger = gen_bc("stagger"));
-    R1 = Rsplitter{data_dir / jin.at("R1").get<fs::path>()};
-    optional_json(R2 = Rsplitter{data_dir / jin.at("R2").get<fs::path>()});
-    R3 = Rsplitter{data_dir / jin.at("R3").get<fs::path>()};
-    optional_json(I1 = Isplitter{data_dir / jin.at("I1").get<fs::path>()});
-    I2 = Isplitter{data_dir / jin.at("I2").get<fs::path>()};
+    auto jgz = jin.at("fastq");
+    gz_prefix = root.string() + jgz.at("prefix").get<std::string>();
+    R1 = Rsplitter{gz_prefix + jgz.at("R1").get<std::string>()};
+    optional_json(R2 = Rsplitter{gz_prefix + jgz.at("R2").get<std::string>()});
+    R3 = Rsplitter{gz_prefix + jgz.at("R3").get<std::string>()};
+    optional_json(I1 = Isplitter{gz_prefix + jgz.at("I1").get<std::string>()});
+    I2 = Isplitter{gz_prefix + jgz.at("I2").get<std::string>()};
     
     // sanity checks
     if (1 == (I1.failed() + plate.empty())) {
@@ -60,9 +63,9 @@ struct H4 {
     }
    
     auto jout = J.at("output");    
-    out_dir = json_dir / jout.at("dir").get<fs::path>();
-    R1_out.reset(new fastq::writer_t<>{out_dir/ jout.at("R1").get<fs::path>(), gPool});
-    R2_out.reset(new fastq::writer_t<>{out_dir/ jout.at("R2").get<fs::path>(), gPool});
+    out_prefix = jout.at("prefix").get<std::string>();
+    R1_out.reset(new fastq::writer_t<>{out_prefix + jout.at("R1").get<std::string>(), gPool});
+    R2_out.reset(new fastq::writer_t<>{out_prefix + jout.at("R2").get<std::string>(), gPool});
   }
  
   bool has_stagger() const noexcept { return !stagger.empty(); }
@@ -85,8 +88,9 @@ struct H4 {
   std::unique_ptr<fastq::writer_t<>> R2_out;
 
   bool clipping = false;
-  fs::path data_dir;
-  fs::path out_dir;
+  std::string bc_prefix;
+  std::string gz_prefix;
+  std::string out_prefix;
 };
 
 
@@ -125,6 +129,9 @@ void dry_run(const H4& h4) {
   gz_stats("    I2", h4.I2);
 
   cout << "matches\n";
+  if (h4.has_stagger()) {
+    std::cout << "    S <- idx min_ed(R2[1](0:" << h4.stagger.min_code_length() << "), stagger)\n";
+  }
   const auto ctl = h4.bc_D.max_code_length()
                  + 1
                  + h4.bc_B.max_code_length()

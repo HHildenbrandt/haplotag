@@ -100,7 +100,7 @@ namespace fastq {
       
       explicit reader_t(const std::filesystem::path& path) : path_(path) {
         if (nullptr == (gzin_ = gzopen(path.string().c_str(), "rb"))) {
-          throw std::runtime_error("fastq::reader_t: failed to open input file");
+          throw std::runtime_error(std::string("fastq::reader_t: failed to open input file \'") + path.string() + '\'');
         }
         gzbuffer(gzin_, gz_buffer);
         deflate_ = std::jthread([&, gzin = gzin_](std::stop_token stok) {
