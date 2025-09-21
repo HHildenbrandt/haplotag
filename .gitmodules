@@ -9,6 +9,3 @@
 	path = zlib
 	url = https://github.com/madler/zlib.git
 	branch = master
-[submodule "function2"]
-	path = function2
-	url = https://github.com/Naios/function2.git

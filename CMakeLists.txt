@@ -42,11 +42,11 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     add_definitions(-DLUA_USE_LINUX -DFLUA_USE_LINUX -DFASTQ_LINUX)
 endif()
 
-# cuda
-find_package(CUDAToolkit)
-if (${CUDAToolkit_FOUND})
-    set(FASTQ_HAS_CUDA 1)
-endif()
+## cuda
+#find_package(CUDAToolkit)
+#if (${CUDAToolkit_FOUND})
+#    set(FASTQ_HAS_CUDA 1)
+#endif()
 
 
 # original binaries
@@ -80,25 +80,10 @@ add_fastq(fastq_fuzzy)
 add_fastq(fastq_read)
 add_fastq(fastq_splitter)
 add_fastq(fastq_H4)
-add_fastq(fastq_cat)
+add_fastq(fastq_unzip)
 
-if(NOT WIN32)
-    add_executable(pigz
-        ${CMAKE_SOURCE_DIR}/pigz/try.c
-        ${CMAKE_SOURCE_DIR}/pigz/yarn.c
-        ${CMAKE_SOURCE_DIR}/pigz/pigz.c
-    )
-    target_compile_definitions(pigz PUBLIC -DNOZOPFLI)
-    target_link_libraries(pigz PRIVATE Threads::Threads zlibstatic)
-
-    # move to a common destination
-    install(TARGETS pigz RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
-    set_target_properties(pigz PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin$<0:>)
-endif()
-
-
-if (${CUDAToolkit_FOUND})
-    add_subdirectory(fastq_cuda)
-else()
-    message(STATUS "CUDAToolkit not found. Skipping CUDA builds")
-endif()
+#if (${CUDAToolkit_FOUND})
+#    add_subdirectory(fastq_cuda)
+#else()
+#    message(STATUS "CUDAToolkit not found. Skipping CUDA builds")
+#endif()
