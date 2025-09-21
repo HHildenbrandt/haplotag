@@ -16,9 +16,12 @@ cd vcpkg
 ./bootstrap-vcpkg.sh -disableMetrics
 cd ..
 
+# on Habrok:
+module load GCC/13
+
 mkdir build && cd build
 cmake ..
-cmake --build . --target Release
+cmake --build . --config Release
 
 # binaries can be found in ./bin
 ```

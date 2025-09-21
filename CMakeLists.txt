@@ -6,6 +6,7 @@ if (WIN32)
 endif()
 
 project(haplotag)
+find_package(Threads)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -69,7 +70,7 @@ macro(add_fastq name)
     add_executable(${name} ${CMAKE_SOURCE_DIR}/src/${name}.cpp)
     target_compile_definitions(${name} PRIVATE FASTQ_HAS_CUDA=${FASTQ_HAS_CUDA})
     target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR})
-    target_link_libraries(${name} PRIVATE zlibstatic ${FU2} nlohmann_json::nlohmann_json)
+    target_link_libraries(${name} PRIVATE Threads::Threads zlibstatic ${FU2} nlohmann_json::nlohmann_json)
     set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin$<0:>)
 endmacro()
 add_fastq(fastq_barcode)
@@ -88,7 +89,7 @@ if(NOT WIN32)
         ${CMAKE_SOURCE_DIR}/pigz/pigz.c
     )
     target_compile_definitions(pigz PUBLIC -DNOZOPFLI)
-    target_link_libraries(pigz PRIVATE zlibstatic)
+    target_link_libraries(pigz PRIVATE Threads::Threads zlibstatic)
 
     # move to a common destination
     install(TARGETS pigz RUNTIME DESTINATION ${CMAKE_SOURCE_DIR}/bin)
