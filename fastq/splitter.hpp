@@ -216,7 +216,7 @@ namespace fastq {
       static value_type apply(str_view& /* in/out */ cv) noexcept {
         auto ret = str_view{};
         if (auto p1 = cv.find(Delim); p1 != cv.npos) [[likely]] {
-          assert(cv.length() > (RemoveFront + RemoveBack));
+          assert(cv.length() >= (RemoveFront + RemoveBack));
           ret = cv.substr(RemoveFront, p1 + (1 - (RemoveFront + RemoveBack)));
           cv.remove_prefix(p1 + 1);
         } 

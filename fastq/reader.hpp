@@ -25,9 +25,9 @@
 
 #include <cassert>
 #include <cstring>
-#include <stdexcept>
 #include <cstdlib>
 #include <cstdio>
+#include <stdexcept>
 #include <limits>
 #include <memory>
 #include <filesystem>
@@ -125,6 +125,7 @@ namespace fastq {
         });
       }
 
+    public:
       ~reader_t() {
         // gracefully end worker threads if necessary
         deflate_.request_stop();

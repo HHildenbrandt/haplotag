@@ -9,15 +9,10 @@ project(haplotag)
 find_package(Threads)
 find_package(nlohmann_json CONFIG REQUIRED)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR})
-
-if (CMAKE_CXX_STANDARD LESS 23)
-    add_subdirectory(function2)
-    set(FU2 function2)
-endif()
 
 set(ZLIBPORT zlib-ng)
 if (ZLIBPORT STREQUAL "zlib")
@@ -42,12 +37,6 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     add_definitions(-DLUA_USE_LINUX -DFLUA_USE_LINUX -DFASTQ_LINUX)
 endif()
 
-## cuda
-#find_package(CUDAToolkit)
-#if (${CUDAToolkit_FOUND})
-#    set(FASTQ_HAS_CUDA 1)
-#endif()
-
 
 # original binaries
 macro(add_haplo_demult name)
@@ -70,7 +59,7 @@ macro(add_fastq name)
     add_executable(${name} ${CMAKE_SOURCE_DIR}/src/${name}.cpp)
     target_compile_definitions(${name} PRIVATE FASTQ_HAS_CUDA=${FASTQ_HAS_CUDA})
     target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR})
-    target_link_libraries(${name} PRIVATE Threads::Threads zlibstatic ${FU2} nlohmann_json::nlohmann_json)
+    target_link_libraries(${name} PRIVATE Threads::Threads zlibstatic nlohmann_json::nlohmann_json)
     set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin$<0:>)
 endmacro()
 add_fastq(fastq_barcode)
@@ -80,7 +69,16 @@ add_fastq(fastq_fuzzy)
 add_fastq(fastq_read)
 add_fastq(fastq_splitter)
 add_fastq(fastq_H4)
-add_fastq(fastq_unzip)
+add_fastq(fastq_cp)
+
+
+## cuda
+
+#find_package(CUDAToolkit)
+#if (${CUDAToolkit_FOUND})
+#    set(FASTQ_HAS_CUDA 1)
+#endif()
+
 
 #if (${CUDAToolkit_FOUND})
 #    add_subdirectory(fastq_cuda)

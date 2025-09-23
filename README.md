@@ -16,7 +16,7 @@ cd vcpkg
 ./bootstrap-vcpkg.sh -disableMetrics
 cd ..
 
-# on Habrok:
+# we need a c++23 compiler. On Habrok:
 module load GCC/13
 
 mkdir build && cd build
