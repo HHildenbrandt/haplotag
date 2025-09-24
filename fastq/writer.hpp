@@ -24,9 +24,6 @@
 /*
  * Loosely based on Mark Adler's pigz code: 
  * https://github.com/madler/pigz.git
- * 
- * Pretty much everything zlib-related is rooted on Mark's work.
- * Thus, all credits to him!
 */
 
 #pragma once
@@ -75,7 +72,7 @@ namespace fastq {
 
     // returns val in little endian byte order
     // inverse of the common 'hton' function
-    // gz footer is little endian for some reason 
+    // used to write gz file footer which is little endian for some reason 
     constexpr uint32_t htogz(uint32_t val) {
       if constexpr (std::endian::native == std::endian::big) {
 #if __cpp_lib_byteswap       

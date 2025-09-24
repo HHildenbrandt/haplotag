@@ -15,12 +15,15 @@ If FILE is not given, reads from standard input.
   -f: force overwrite of output file.
   -m <mssk>: only output unmasked lines (max. 64Bit)
     Ex: -m 0010, outputs 2nd line of every 4-line block.
-  -n: show line numbers, ignored if -o is given
   -o <FILE>: compressed output file
     If not given, writes uncompressed to standard output.
   -r <line range>: only output lines in given range.
     Ex: -r 0-10; -r 10:3
 )";
+
+// globals
+std::shared_ptr<hahi::pool_t> gPool;
+
 
 
 std::pair<size_t, size_t> parse_range(std::string_view str) {
@@ -64,17 +67,21 @@ struct cin_splitter {
 };
 
 
-template <typename Splitter>
-void cp(Splitter&& splitter,
-        std::pair<size_t, size_t> range, 
-        std::pair<uint64_t, int> mask, 
-        const std::filesystem::path& output) {
-  std::shared_ptr<hahi::pool_t> gPool;
-  std::unique_ptr<fastq::writer_t<>> writer;
-  if (!output.empty()) {
-    gPool.reset( new hahi::pool_t{} );
-    writer.reset( new fastq::writer_t<>(output, gPool) );
+struct cout_writer {
+  void puts(fastq::str_view str) {
+    if (std::cin.good()) {
+      std::fwrite(str.data(), 1, str.length(), stdout);
+      std::fputc('\n', stdout);
+    }
   }
+};
+
+
+template <typename Splitter, typename Writer>
+void cp(Splitter&& splitter,
+        Writer* writer,
+        std::pair<size_t, size_t> range, 
+        std::pair<uint64_t, int> mask) {
   for (size_t i = 0; !splitter.eof() && (i < range.first); ++i) {
     splitter();
   }
@@ -82,12 +89,7 @@ void cp(Splitter&& splitter,
   for (size_t i = range.first; !splitter.eof() && (i < range.second); ++i) {
     auto line = splitter();
     if (m.first & 1) {
-      if (writer) {
-        writer->puts(line);
-      }
-      else if (std::cin.good()) {
-        std::cout << line << '\n';
-      }
+      writer->puts(line);
     }
     m.first >>= 1;
     if (--m.second == 0) {
@@ -135,13 +137,16 @@ int main(int argc, const char* argv[]) {
     if (std::filesystem::exists(output) && !force) {
       throw "output file exists, consider -f";
     }
-    if (file.empty()) {
-      // read from standard input
-      cp(cin_splitter{}, range, mask, output);
+    if (!output.empty()) {
+      gPool.reset( new hahi::pool_t{} );
+      auto writer = std::make_unique<fastq::writer_t<>>(output, gPool);
+      file.empty() ? cp(cin_splitter{}, writer.get(), range, mask)
+                   : cp(fastq::line_splitter<>{file}, writer.get(), range, mask);
     }
     else {
-      // read from file
-      cp(fastq::line_splitter<>(file), range, mask, output);
+      auto writer = std::make_unique<cout_writer>();
+      file.empty() ? cp(cin_splitter{}, writer.get(), range, mask)
+                   : cp(fastq::line_splitter<>{file}, writer.get(), range, mask);
     }
     return 0;
   }

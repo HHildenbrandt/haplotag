@@ -252,7 +252,7 @@ namespace fastq {
   }
 
 
-  // the only copying splitter in our arsenal
+  // the only copying splitter in our arsenal ;)
   template <typename Reader>
   using char_splitter = base_splitter<
     Reader,
