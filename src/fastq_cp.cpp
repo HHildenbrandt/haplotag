@@ -11,20 +11,21 @@
 
 constexpr char usage_msg[] = R"(Usage: fastq_cp [OPTIONS] [FILE]
 Copy ranges from fastq[.gz] files.
-If FILE is not given, reads from standard input.
+
+With no FILE, read standard input.
 
   -f: force overwrite of output file.
   -m <mssk>: only output unmasked lines (max. 64Bit)
     Ex: -m 0010, outputs 2nd line of every 4-line block.
   -o <FILE>: compressed output file
-    If not given, writes uncompressed to standard output.
+    If not given, writes to standard output.
   -r <line range>: only output lines in given range.
     Ex: -r 0-10; -r 10:3
 )";
 
-// globals
-std::shared_ptr<hahi::pool_t> gPool;
 
+// global thread pool
+std::shared_ptr<hahi::pool_t> gPool;
 
 
 std::pair<size_t, size_t> parse_range(std::string_view str) {
@@ -51,7 +52,7 @@ std::pair<uint64_t, int> parse_mask(std::string_view str) {
     if (chr == '1') m |= 1;
     else if (chr != '0') throw "can't parse mask";
   }
-  if (m == 0) std::clog << "wrning: empty mask\n";
+  if (m == 0) std::clog << "warning: empty mask\n";
   return { m, len };
 }
 
@@ -127,6 +128,7 @@ void cp(Splitter&& splitter,
 
 int main(int argc, const char* argv[]) {
   try {
+    // CLI arguments
     bool force = false;
     bool verbose = false;
     std::pair<size_t, size_t> range{0, -1};
