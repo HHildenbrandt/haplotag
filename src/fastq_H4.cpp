@@ -30,11 +30,9 @@ struct H4 {
     std::ifstream is(json_file);
     auto J = json::parse(is, nullptr, true, /* ignore_comments */ true);
     auto root = J.at("root").get<fs::path>();
-    std::cout << root << '\n';
     auto jin = J.at("input");
     auto jbc = jin.at("barcodes");
     auto bc_prefix = root / jbc.at("prefix").get<std::string>();
-    std::cout << bc_prefix << '\n';
     auto gen_bc = [&](const char* L) {
       auto bc = fastq::barcode_t{bc_prefix / jbc.at(L).at("file").get<std::string>(), jbc.at(L).at("unclear_tag")};
       optional_json(bc.reset_code_letter(jbc.at(L).at("code_letter").get<std::string>()[0]));
@@ -63,7 +61,7 @@ struct H4 {
     }
    
     auto jout = J.at("output");    
-    out_prefix = jout.at("prefix").get<std::string>();
+    out_prefix = root.string() + jout.at("prefix").get<std::string>();
     R1_out.reset(new fastq::writer_t<>{out_prefix + jout.at("R1").get<std::string>(), gPool});
     R2_out.reset(new fastq::writer_t<>{out_prefix + jout.at("R2").get<std::string>(), gPool});
   }
@@ -103,7 +101,7 @@ void dry_run(const H4& h4) {
       return;
     }
     cout << '"' << bc[0].tag << "\"  "
-         << bc.size() << "  "
+         << bc.size() -1 << "  "
          << '[' << bc.min_code_length() << ", " << bc.max_code_length() << "]  "
          << bc.path()
          << '\n';
@@ -130,7 +128,7 @@ void dry_run(const H4& h4) {
 
   cout << "matches\n";
   if (h4.has_stagger()) {
-    std::cout << "    S <- idx min_ed(R2[1](0:" << h4.stagger.min_code_length() << "), stagger)\n";
+    std::cout << "    stagger <- idx min_ed(R2[1](0:" << h4.stagger.min_code_length() << "), stagger)\n";
   }
   const auto ctl = h4.bc_D.max_code_length()
                  + 1

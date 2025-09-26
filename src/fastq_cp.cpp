@@ -3,6 +3,7 @@
 #include <charconv>
 #include <array>
 #include <memory>
+#include <chrono>
 #include <fastq/reader.hpp>
 #include <fastq/splitter.hpp>
 #include <fastq/writer.hpp>
@@ -50,30 +51,39 @@ std::pair<uint64_t, int> parse_mask(std::string_view str) {
     if (chr == '1') m |= 1;
     else if (chr != '0') throw "can't parse mask";
   }
-  if (m == 0) throw "empty mask";
+  if (m == 0) std::clog << "wrning: empty mask\n";
   return { m, len };
 }
 
 
-struct cin_splitter {
-  std::string buf;
-  
+class cin_splitter {
+  std::string buf_;
+  size_t tot_bytes_ = 0;
+
+public:
   fastq::str_view operator()() { 
-    std::getline(std::cin, buf);
-    return buf;
+    std::getline(std::cin, buf_);
+    tot_bytes_ += buf_.size();
+    return buf_;
   }
 
   bool eof() { return std::cin.eof(); }
+  auto tot_bytes() const { return tot_bytes_; }
 };
 
 
-struct cout_writer {
+class cout_writer {
+  size_t tot_bytes_ = 0;
+
+public:
   void puts(fastq::str_view str) {
     if (std::cin.good()) {
       std::fwrite(str.data(), 1, str.length(), stdout);
       std::fputc('\n', stdout);
+      tot_bytes_ += str.length() + 1;
     }
   }
+  auto tot_bytes() const { return tot_bytes_; }
 };
 
 
@@ -81,14 +91,21 @@ template <typename Splitter, typename Writer>
 void cp(Splitter&& splitter,
         Writer* writer,
         std::pair<size_t, size_t> range, 
-        std::pair<uint64_t, int> mask) {
+        std::pair<uint64_t, int> mask,
+        bool verbose) {
+  size_t lines_in = 0;
+  size_t lines_out = 0;
+  auto t0 = std::chrono::high_resolution_clock::now();
   for (size_t i = 0; !splitter.eof() && (i < range.first); ++i) {
+    ++lines_in;
     splitter();
   }
   auto m = mask;
   for (size_t i = range.first; !splitter.eof() && (i < range.second); ++i) {
     auto line = splitter();
+    ++lines_in;
     if (m.first & 1) {
+      ++lines_out;
       writer->puts(line);
     }
     m.first >>= 1;
@@ -96,12 +113,22 @@ void cp(Splitter&& splitter,
       m = mask;
     }
   }
+  if (verbose) {
+    auto time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - t0);
+    std::clog << "\nlines read:    " << lines_in << '\n';
+    std::clog << "bytes read:    " << splitter.tot_bytes() << '\n';
+    std::clog << "lines written: " << lines_out << '\n';
+    std::clog << "bytes written: " << writer->tot_bytes() << '\n';
+    std::clog << "io bandwith:   " << ((splitter.tot_bytes() + writer->tot_bytes()) / (1000*1000)) / time.count() << " MiB/s\n";
+    std::clog << "elapsed time:  " << time << '\n';
+  }
 }
 
 
 int main(int argc, const char* argv[]) {
   try {
     bool force = false;
+    bool verbose = false;
     std::pair<size_t, size_t> range{0, -1};
     std::pair<uint64_t, int> mask{-1, 64};
     std::filesystem::path file;
@@ -113,6 +140,9 @@ int main(int argc, const char* argv[]) {
       }
       else if (0 == std::strcmp(argv[i], "-f")) {
         force = true;
+      }
+      else if (0 == std::strcmp(argv[i], "-v")) {
+        verbose = true;
       }
       else if (0 == std::strcmp(argv[i], "-r")) {
         range = parse_range((++i < argc) ? argv[i] : "");
@@ -140,13 +170,13 @@ int main(int argc, const char* argv[]) {
     if (!output.empty()) {
       gPool.reset( new hahi::pool_t{} );
       auto writer = std::make_unique<fastq::writer_t<>>(output, gPool);
-      file.empty() ? cp(cin_splitter{}, writer.get(), range, mask)
-                   : cp(fastq::line_splitter<>{file}, writer.get(), range, mask);
+      file.empty() ? cp(cin_splitter{}, writer.get(), range, mask, verbose)
+                   : cp(fastq::line_splitter<>{file}, writer.get(), range, mask, verbose);
     }
     else {
       auto writer = std::make_unique<cout_writer>();
-      file.empty() ? cp(cin_splitter{}, writer.get(), range, mask)
-                   : cp(fastq::line_splitter<>{file}, writer.get(), range, mask);
+      file.empty() ? cp(cin_splitter{}, writer.get(), range, mask, verbose)
+                   : cp(fastq::line_splitter<>{file}, writer.get(), range, mask, verbose);
     }
     return 0;
   }

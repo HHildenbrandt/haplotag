@@ -123,6 +123,7 @@ namespace fastq {
 
     bool eof() const noexcept { return last_ && chunk_splitter_.empty(); }
     bool failed() const noexcept { return !reader_ || reader_->failed(); }
+    size_t tot_bytes() const noexcept { return reader_->tot_bytes(); }
     const Reader& reader() const noexcept { return *reader_.get(); }
 
     // returns view into memory we don't own

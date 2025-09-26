@@ -370,14 +370,10 @@ int main (int argc, char* argv[])
   // ??? 10 <-> BC_ME.txt code length
 	R2_prefix=R2_orig.substr(0,10);   // ??? unchecked |R2_orig|
 	getStagger(R2_prefix,staggerME,10, bc_ME);
-    stagger_num=staggerME.substr(1,1);
+  stagger_num=staggerME.substr(1,1);
 	ss << stagger_num;
 	ss >> stagger;
-  std::cout << R2_prefix.substr(0,10) << ' ' << staggerME << '\n';
-  if (staggerME.length() > 2) {
-   	getStagger(R2_prefix,staggerME,10, bc_ME);
-    int dummy = 0;
-  }
+//  std::cout << R2_prefix.substr(0,10) << ' ' << staggerME << '\n';
 
   // ??? hard coded #stagger
 	if (stagger < 3) {

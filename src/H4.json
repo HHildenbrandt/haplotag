@@ -1,5 +1,5 @@
 {
-    "root": "/home/hanno/haplotag/scratch/hb-1000G_str/pilot/",
+    "root": "/home/hanno/habrok/scratch/hb-1000G_str/pilot/",
     "input": {
         "barcodes": {
             "prefix": "",
@@ -21,8 +21,7 @@
             },
             "plate": {
                 "file": "Plate_BC_8.txt",
-                "unclear_tag": "P00",
-                "code_letter": "P"
+                "unclear_tag": "P000"
             },
             "stagger": {
                 "file": "BC_ME.txt",

@@ -1,10 +1,5 @@
 # haplotag
 
-## data
-
-`/scratch/hb-1000G_str/pilot/raw_fastq`
-
-
 All you need to know about zlib: [Mark Adler's zlib repository](https://github.com/madler/zlib/tree/develop)
 
 ```
@@ -25,6 +20,115 @@ cmake --build . --config Release
 
 # binaries can be found in ./bin
 ```
+
+
+# Issues
+
+## incorrect `code_total_length`
+
+Potential buffer overrun:
+
+```
+codeC_inFile=line.substr(19+sstagger+1,7);    // ??? +7 missing in code_total_length
+```
+
+
+## stagger
+
+```
+# BC_ME.txt
+S2	AGATGTGTAT
+S1	GATGTGTATA
+S0	ATGTGTATAA
+```
+
+Unclear stagger maps to `staggerME = "S00"` in `min_edit_distance`.
+
+```c++
+  getStagger(R2_prefix,staggerME,10, bc_ME);
+  stagger_num=staggerME.substr(1,1);
+```
+
+Unclear stagger maps to `stagger_num = 0`.
+-> unclear stagger === clear stagger "S0".
+
+# plate
+
+```
+# Plate_BC_8.txt
+N501	GCGATCTA
+N502	ATAGAGAG
+P999	GGGGGGGG
+```
+
+Unclear plate maps to "P00" (hard to parse downstream).
+
+# data
+
+`/scratch/hb-1000G_str/pilot/raw_fastq`
+
+```
+[hanno@desktop-r4 raw_fastq]$ fastq_cp Pilot-1_I1_001.fastq.gz -v -o dummy.gz
+
+lines read:    28035027960
+bytes read:    480221051846
+lines written: 28035027960
+bytes written: 480197476352
+elapsed time:  259s
+```
+
+## Naming code <-> data
+
+```c++
+  string R1_file=path_to_reads+"test_H4_R1_001.fastq.gz";
+  string R2_file=path_to_reads+"test_H4_R4_001.fastq.gz";
+  // string R3_file=path_to_reads+"test_H4_R3_001.fastq.gz";   // ??? doesn't exist
+  string R3_file=path_to_reads+"test_R3_001.fastq.gz"; 
+  string I1_file=path_to_reads+"test_H4_I1_001.fastq.gz";      
+  string I2_file=path_to_reads+"test_H4_R2_001.fastq.gz"; 
+```
+
+## output
+
+Mix of '\t' and ' ' delimiter (very hard to parse downstream).
+
+Output files contains a ton of redundant information and are much bigger than the input files.<br>
+Proprietary format (needs a specialized parser anyhow)<br>
+No need for suffixes.<br>
+Exact index-mapping to input files: current output could be reconstructed from input data + some metadata.<br>
+
+```
+hanno@desktop-r4 pilot]$ fastq_cp test_small_out_R1_001.fastq.gz -m 0001 -r 0-16
+@LH00392:29:22KLTHLT3:6:1101:33962:1240 BX:Z:A21C00B21D00-P00	RX:Z:GCGATCTAGTGTGAACCGTAACCGAG+GAGTCAGCGTAGA	QX:Z:IIIIIIIIIIIIIIIIII9IIII9II+IIIIIII9IIII-
+@LH00392:29:22KLTHLT3:6:1101:33999:1240 BX:Z:A22C00B95D00-P00	RX:Z:GCGATCTAGTAACGTTCCTGCAGCAA+TCGAAGGTGCATC	QX:Z:IIIIIIIIIIIIIIIIIIIIIIIIII+IIIIIIIIIIIII
+@LH00392:29:22KLTHLT3:6:1101:34036:1240 BX:Z:A00C06B20D13-N502	RX:Z:ATAGAGAGGTCCACTAGCCATCGAGA+CAGAGTGTACAGG	QX:Z:IIIIIIIIIIIIIIIIIII9IIIIII+IIIIIIIIII9II
+@LH00392:29:22KLTHLT3:6:1101:34055:1240 BX:Z:A37C00B64D13-N502	RX:Z:ATAGAGAGGTCCTACGACCGCTGCAT+TGGATAGTGTTAG	QX:Z:-I9I9I9IIII99IIII-II9-II99+9II-III9I-II-
+[hanno@desktop-r4 pilot]$ 
+[hanno@desktop-r4 pilot]$ fastq_cp test_small_out_R2_001.fastq.gz -m 0001 -r 0-16
+@LH00392:29:22KLTHLT3:6:1101:33962:1240 BX:Z:A21C00B21D00-P00	RX:Z:GCGATCTAGTGTGAACCGTAACCGAG+GAGTCAGCGTAGA	QX:Z:IIIIIIIIIIIIIIIIII9IIII9II+IIIIIII9IIII-
+@LH00392:29:22KLTHLT3:6:1101:33999:1240 BX:Z:A22C00B95D00-P00	RX:Z:GCGATCTAGTAACGTTCCTGCAGCAA+TCGAAGGTGCATC	QX:Z:IIIIIIIIIIIIIIIIIIIIIIIIII+IIIIIIIIIIIII
+@LH00392:29:22KLTHLT3:6:1101:34036:1240 BX:Z:A00C06B20D13-N502	RX:Z:ATAGAGAGGTCCACTAGCCATCGAGA+CAGAGTGTACAGG	QX:Z:IIIIIIIIIIIIIIIIIII9IIIIII+IIIIIIIIII9II
+@LH00392:29:22KLTHLT3:6:1101:34055:1240 BX:Z:A37C00B64D13-N502	RX:Z:ATAGAGAGGTCCTACGACCGCTGCAT+TGGATAGTGTTAG	QX:Z:-I9I9I9IIII99IIII-II9-II99+9II-III9I-II-
+[hanno@desktop-r4 pilot]$ 
+[hanno@desktop-r4 pilot]$ fastq_cp test_R1_001.fastq.gz -m 0001 -r 0-16 | awk '{print $1}'
+@LH00392:29:22KLTHLT3:6:1101:33962:1240
+@LH00392:29:22KLTHLT3:6:1101:33999:1240
+@LH00392:29:22KLTHLT3:6:1101:34036:1240
+@LH00392:29:22KLTHLT3:6:1101:34055:1240
+[hanno@desktop-r4 pilot]$ 
+[hanno@desktop-r4 pilot]$ fastq_cp test_R2_001.fastq.gz -m 0001 -r 0-16 | awk '{print $1}'
+@LH00392:29:22KLTHLT3:6:1101:33962:1240
+@LH00392:29:22KLTHLT3:6:1101:33999:1240
+@LH00392:29:22KLTHLT3:6:1101:34036:1240
+@LH00392:29:22KLTHLT3:6:1101:34055:1240
+```
+
+## Runs
+
+'scratch' is slow - local computation on nvme?<br>
+Organizing input-output relations in directories instead of filename mangling?<br>
+Consider CoW filesystem.<br>
+
 
 ### generate bigger fastq files
 
