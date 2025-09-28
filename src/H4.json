@@ -1,5 +1,7 @@
 {
     "root": "/home/hanno/habrok/scratch/hb-1000G_str/pilot/",
+    "range": "0-10000",
+    "num_threads": -1,
     "input": {
         "barcodes": {
             "prefix": "",

@@ -206,9 +206,8 @@ namespace fastq {
       }
     }
 
+    // inspired by Mark Adler's pigz code: https://zlib.net/pigz/
     void launch_compressor(std::ofstream&& gzout, auto shpool, unsigned nun_threads) {
-      // this is a rip-off of Mark Adler's pigz code: https://zlib.net/pigz/
-      // 
       compressor_ = std::thread([&, gzout = std::move(gzout), pool = shpool_.get(), nt = num_threads_]() mutable {
         using cfuture = std::future<std::pair<char* /* out buf */, uint32_t /* avail */>>;
         auto cf = std::vector<cfuture>{};

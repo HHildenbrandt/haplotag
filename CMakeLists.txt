@@ -69,7 +69,8 @@ add_fastq(fastq_fuzzy)
 add_fastq(fastq_read)
 add_fastq(fastq_splitter)
 add_fastq(fastq_H4)
-add_fastq(fastq_cp)
+add_fastq(fastq_cat)
+add_fastq(fastq_paste)
 
 
 ## cuda
