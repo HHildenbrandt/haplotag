@@ -5,7 +5,7 @@
  *      Authors: Andreea Dreau, https://github.com/adreau
  *               Frank Chan, https://github.com/evolgenomics
  */
-#include <cassert>
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -17,13 +17,12 @@
 
 using namespace std;
 
-string barcode_A="../data/BC_A_H4.txt";   // ??? 7|8, 
-string barcode_B="../data/BC_B.txt";      // ??? 6, tested against (6+1, 6)
-string barcode_C="../data/BC_C_H4.txt";   // ??? 7
-string barcode_D="../data/BC_D.txt";      // ??? 6, tested against (0,6)
-
-string barcode_ME="../data/BC_ME.txt";    // 10
-string barcode_PLATE="../data/Plate_BC_8.txt";  // 8
+string barcode_A="BC_A_H4.txt";
+string barcode_B="BC_B.txt";
+string barcode_C="BC_C_H4.txt";
+string barcode_D="BC_D.txt";
+string barcode_ME="BC_ME.txt";
+string barcode_PLATE="Plate_BC_8.txt";
 
 map<string,string> bc_A;
 map<string,string> bc_B;
@@ -126,9 +125,9 @@ void getStagger(string &R2_prefix, string &staggerME,
  //  getline(R2, line);
 
 //	RX1=line;
-  // ??? code_total_length == 10, matches BC_ME.txt
+
   if(R2_prefix.length()<code_total_length){
-    staggerME="S9";   // ??? fails if #stagger entries > 8
+    staggerME="S9";
   }else{
 		codeME_inFile=R2_prefix.substr(0,10);
     m=bcM.find(codeME_inFile);
@@ -151,10 +150,9 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
 						int code_total_length, string &staggerME, string code_letter1, string code_letter2, string code_letter3, string code_letter4, 
 						map<string,string> bc1, map<string,string> bc2, map<string,string> bc3, map<string,string> bc4){
 
-  // ??? bc1 = bc_B, bc2 = bc_D, bc3 = bc_A, bc4 = bc_C
 	read_type1="correct";
-	read_type2="correct";   // ??? const 
-  
+	read_type2="correct";
+
   string line;
 	string codeB_inFile,codeD_inFile,codeA_inFile,codeC_inFile;
   map<string,string>::iterator b;
@@ -171,9 +169,6 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
   for(int i=0;i<2;i++)
     getline(I2, line);
 	line=line.append(R3_orig);
-  if (sstagger > 3) {
-    int dummy = 0;
-  }
 
 	RX1=line;
 
@@ -184,14 +179,11 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
     codeC=code_letter4+"00";
   }else{
 	//Deal with B first
-    // ??? same in demult_fastq:
-    // ??? one character skipped between codeB_inFile and codeD_inFile
-    // ??? why? 
-		codeB_inFile=line.substr(6+1,6);    // ??? unbounded in demult_fastq
+		codeB_inFile=line.substr(6+1,6);
     b=bc1.find(codeB_inFile);
     if(b==bc1.end()){
       codeB=min_edit_distance(codeB_inFile,bc1,code_letter1);
-			read_type1="corrected";// ??? forced to "corrected", ed ignored, codeB used
+			read_type1="corrected";
     }else
       codeB=b->second;
 
@@ -200,34 +192,28 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
     d=bc2.find(codeD_inFile);
     if(d==bc2.end()){
       codeD=min_edit_distance(codeD_inFile,bc2,code_letter2);
-			read_type1="corrected";   // ??? forced to "corrected", ed ignored, codeD used
+			read_type1="corrected";
     }else
       codeD=d->second;
 
-  // ??? codeB_inFile codeA_inFile flushed (nothing skipped).
 	//Deal with the staggering_A
-		codeA_inFile=line.substr(13,6+sstagger);  // ??? 13 = |bc1| + 1 + |bc2|
+		codeA_inFile=line.substr(13,6+sstagger);
  //   cout<< "Passed stagger: " << stagger_passed << endl;
  //   cout<< "A match: " << line.substr(13,6+sstagger) << endl;
-    assert(6+sstagger == codeA_inFile.length());
 		a=bc3.find(codeA_inFile);
     if(a==bc3.end()){
-      // ??? bc3 contains codes x of |6|, |7| and |8|
-      // ??? tested against |6|
-      // ??? ed >= |x| - |6|
       codeA=min_edit_distance(codeA_inFile,bc3,code_letter3);
-			read_type1="corrected";   // ??? forced to "corrected", ed ignored, codeA used
+			read_type1="corrected";
     }else
       codeA=a->second;
 	
-  // ??? codeA_inFile codeC_inFile flushed (nothing skipped).
 	//Deal with the staggered_C
-		codeC_inFile=line.substr(19+sstagger+1,7);    // ??? missing in code_total_length
+		codeC_inFile=line.substr(19+sstagger+1,7);
     //cout<< "C match: " << line.substr(19+sstagger+1) << endl;
     c=bc4.find(codeC_inFile);
     if(c==bc4.end()){
       codeC=min_edit_distance(codeC_inFile,bc4,code_letter4);
-			read_type1="corrected";    // ??? forced to "corrected", ed ignored, codeC used
+			read_type1="corrected";
     }else
       codeC=c->second;
 
@@ -260,7 +246,7 @@ void getPlateCode(igzstream &I1, string &codePLATE,
         RX1=line;
 
   if(line.length()<code_total_length){
-    codePLATE=code_letter5+"00";      // ?? P000 
+    codePLATE=code_letter5+"00";
   }else{
 
 //NEW FC - I haven't changed this yet
@@ -295,15 +281,14 @@ int main (int argc, char* argv[])
                               << bc_C.size() << " C, " << bc_D.size() << " D, " << bc_PLATE.size() << " PLATE, " << bc_ME.size() << " ME " << endl;
 
 
-  string path_to_reads= (argc < 2) ? "../data/" : argv[1];
-  string path_output = (argc < 2) ? "../data/" : argv[2];
-                            
-  string R1_file=path_to_reads+"test_H4_R1_001.fastq.gz";
-  string R2_file=path_to_reads+"test_H4_R4_001.fastq.gz";
-  // string R3_file=path_to_reads+"test_H4_R3_001.fastq.gz";   // ??? doesn't exist
-  string R3_file=path_to_reads+"test_R3_001.fastq.gz"; 
-  string I1_file=path_to_reads+"test_H4_I1_001.fastq.gz";
-  string I2_file=path_to_reads+"test_H4_R2_001.fastq.gz"; 
+  string path_to_reads=argv[1];
+  string path_output=argv[2];
+
+  string R1_file=path_to_reads+"R1_001.fastq.gz";
+  string R2_file=path_to_reads+"R4_001.fastq.gz";
+  string R3_file=path_to_reads+"R3_001.fastq.gz";
+  string I1_file=path_to_reads+"I1_001.fastq.gz";
+  string I2_file=path_to_reads+"R2_001.fastq.gz";
 
   string R1_outfile=path_output+"_R1_001.fastq.gz";
   string R2_outfile=path_output+"_R2_001.fastq.gz";
@@ -327,7 +312,7 @@ int main (int argc, char* argv[])
 
   string codeA,codeB,codeC,codeD,codePLATE;
   string R3_orig, R3_qual, R2_orig, R2_prefix, staggerME;
-	string RX1, RX2, QX1, QX2, PX1, PX1Q;   // ??? RX2, QX2 not used
+	string RX1, RX2, QX1, QX2, PX1, PX1Q;
 	//read type: correct, corrected, unclear
 	string read_type1, read_type2, read_type3;
 
@@ -356,8 +341,6 @@ int main (int argc, char* argv[])
 	
 	//Just getting the header line from Read3 out of the way...
     getline(R3, R3_orig);
-
-  // ??? Read2?
 	//Get the first read from Read2 to figure out what the stagger should be
     getline(R3, R3_orig);
     getline(R3, R3_qual);
@@ -367,30 +350,28 @@ int main (int argc, char* argv[])
 	getline(R2, line);
 	//Get the first read from Read2 to figure out what the stagger should be
 	getline(R2, R2_orig);
-  // ??? 10 <-> BC_ME.txt code length
-	R2_prefix=R2_orig.substr(0,10);   // ??? unchecked |R2_orig|
+	R2_prefix=R2_orig.substr(0,10);
 	getStagger(R2_prefix,staggerME,10, bc_ME);
-  stagger_num=staggerME.substr(1,1);
+    stagger_num=staggerME.substr(1,1);
 	ss << stagger_num;
 	ss >> stagger;
-//  std::cout << R2_prefix.substr(0,10) << ' ' << staggerME << '\n';
 
-  // ??? hard coded #stagger
+
+
 	if (stagger < 3) {
 		getCode(I2, R3_orig, R3_qual, codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,staggerME,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
 //	    getCode(I2,codeB,codeD,RX2,QX2,read_type2,13, "B", "D", bc_B, bc_D);
 	} else {
-    // ??? never reached
 		codeA="A00";
 		codeB="B00";
 		codeC="C00";
 		codeD="D00";
 		read_type1="unclear";
 		read_type2="unclear";
-		RX1="NNNNNNNNNNNNNNNNNNNNNNNNNNNN";   // ??? 28
-		RX2="NNNNNNNNNNNNNNNNNNNNNNNNNNNN";   // ??? 28
-		QX1="----------------------------";   // ??? 28
-		QX2="----------------------------";   // ??? 28 unused
+		RX1="NNNNNNNNNNNNNNNNNNNNNNNNNNNN";
+		RX2="NNNNNNNNNNNNNNNNNNNNNNNNNNNN";
+		QX1="----------------------------";
+		QX2="----------------------------";
 	}
 
 		//append BX tag
@@ -413,7 +394,7 @@ int main (int argc, char* argv[])
 		name=name.append("\tRX:Z:");
 		name=name.append(RX1);
 		name=name.append("+");
-    name=name.append(PX1);
+                name=name.append(PX1);
 		//name=name.append("+");
 		//name=name.append(RX2);
 
@@ -439,11 +420,11 @@ int main (int argc, char* argv[])
     unsigned int codeA_num = atoi(codeA_value.c_str());
     unsigned int clip_size=0;
     if (codeA_num > 0 &&  codeA_num <= 32)
-       clip_size = 17;  // |A| 6
+       clip_size = 17;
     else if (codeA_num > 32 && codeA_num <=64)
-       clip_size = 18;  // |A| 7
+       clip_size = 18;
     else
-       clip_size = 19;  // |A| 0|8   
+       clip_size = 19;
 
     string R2_orig_clipped = R2_orig.substr(clip_size, R2_orig.size()-clip_size+1);
 
@@ -461,7 +442,6 @@ int main (int argc, char* argv[])
       R2_out<<line<<endl;
     }
 		//sort reads clear vs unclear
-    // ??? boring output, always empty (stagger < 3) or full of "A00B00C00D00..."
 		if(read_type1.compare("unclear")==0 || read_type2.compare("unclear")==0){
 
 			it_unclear=unclear_read_map.find(code);

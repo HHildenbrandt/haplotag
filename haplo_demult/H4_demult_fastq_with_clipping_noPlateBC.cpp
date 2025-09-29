@@ -17,12 +17,12 @@
 
 using namespace std;
 
-string barcode_A="../data/BC_A_H4.txt";
-string barcode_B="../data/BC_B.txt";
-string barcode_C="../data/BC_C_H4.txt";
-string barcode_D="../data/BC_D.txt";
-string barcode_ME="../data/BC_ME.txt";
-string barcode_PLATE="../data/Plate_BC.txt";
+string barcode_A="BC_A_H4.txt";
+string barcode_B="BC_B.txt";
+string barcode_C="BC_C_H4.txt";
+string barcode_D="BC_D.txt";
+string barcode_ME="BC_ME.txt";
+string barcode_PLATE="Plate_BC.txt";
 
 map<string,string> bc_A;
 map<string,string> bc_B;
@@ -235,15 +235,16 @@ int main (int argc, char* argv[])
   cout << "loaded barcodes: " << bc_A.size() << " A, " << bc_B.size() << " B, "
                               << bc_C.size() << " C, " << bc_D.size() << " D, " << bc_ME.size() << " ME " << endl;
 
-  string path_to_reads= (argc < 2) ? "../data/" : argv[1];
-  string path_output = (argc < 2) ? "../data/" : argv[2];
-                            
-  string R1_file=path_to_reads+"_gen_test_H4_R1_001.fastq.gz";
-  string R2_file=path_to_reads+"_gen_test_H4_R4_001.fastq.gz";
-  string R3_file=path_to_reads+"_gen_test_H4_R3_001.fastq.gz";
-  string I1_file=path_to_reads+"_gen_test_H4_I1_001.fastq.gz";
-  string I2_file=path_to_reads+"_gen_test_H4_R2_001.fastq.gz";
-                            
+
+  string path_to_reads=argv[1];
+  string path_output=argv[2];
+
+  string R1_file=path_to_reads+"R1_001.fastq.gz";
+  string R2_file=path_to_reads+"R4_001.fastq.gz";
+  string R3_file=path_to_reads+"R3_001.fastq.gz";
+  string I1_file=path_to_reads+"I1_001.fastq.gz";
+  string I2_file=path_to_reads+"R2_001.fastq.gz";
+
   string R1_outfile=path_output+"_R1_001.fastq.gz";
   string R2_outfile=path_output+"_R2_001.fastq.gz";
 
