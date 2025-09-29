@@ -300,5 +300,4 @@ namespace fastq {
     >
   >;
 
-
 }

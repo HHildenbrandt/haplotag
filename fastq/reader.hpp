@@ -51,14 +51,14 @@ namespace fastq {
   // blob handed out by reader_t<...>::operator()
   //
   // buf ->          |..............| }
-  //                 ...              |- undefined spare
+  //                       ...        |- undefined spare
   //                 |..............| }  
   // buf + window -> |..............|                }
   //                 |..............|                |
-  //                 ...                             |- cv()
-  //                 ...                             |
+  //                       ...                       |- cv()
+  //                       ...                       |
   //                 |..............| <- buf + size  }
-  //                 |...
+  //                       ...
   //                 |..............| <- buf + reader_t<...>::chunk_size
   // 
   struct chunk_t {

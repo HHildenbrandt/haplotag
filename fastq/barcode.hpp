@@ -30,6 +30,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <algorithm>
 #include "fastq.hpp"
 #include "splitter.hpp"
 
@@ -87,6 +88,15 @@ namespace fastq {
     void reset_code_letter(char code_letter) {
       for (auto& e : bc_) {
         e.tag[0] = code_letter;
+      }
+    }
+
+    // sort true entries by tag
+    void sort_by_tags() {
+      if (bc_.size() > 1) {
+        std::sort(bc_.begin() + 1, bc_.end(), [](const auto& a, const auto& b) {
+          return a.tag < b.tag;
+        });
       }
     }
 

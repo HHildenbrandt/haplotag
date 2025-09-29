@@ -103,18 +103,17 @@ void load_ME(map<string,string> &bc_list,string file){
 
 }
 
-void load_all_barcodes(){
+void load_all_barcodes(const std::string& path_to_bc){
 
-  load_barcodes(bc_A,barcode_A, 3);
-  load_barcodes(bc_B,barcode_B, 3);
-  load_barcodes(bc_C,barcode_C, 3);
-  load_barcodes(bc_D,barcode_D, 3);
-  load_barcodes(bc_PLATE,barcode_PLATE, 4);
-  load_ME(bc_ME,barcode_ME);
-
+  load_barcodes(bc_A, path_to_bc + barcode_A, 3);
+  load_barcodes(bc_B, path_to_bc + barcode_B, 3);
+  load_barcodes(bc_C, path_to_bc + barcode_C, 3);
+  load_barcodes(bc_D, path_to_bc + barcode_D, 3);
+  load_barcodes(bc_PLATE, path_to_bc + barcode_PLATE, 4);
+  load_ME(bc_ME, path_to_bc + barcode_ME);
 }
 
-//getStagger(R2,staggerME,10, bc_ME);
+//getStagger(R4,staggerME,10, bc_ME);
 
 void getStagger(string &R2_prefix, string &staggerME, 
 						int code_total_length, map<string,string> bcM){
@@ -122,7 +121,7 @@ void getStagger(string &R2_prefix, string &staggerME,
 	string codeME_inFile;
   map<string,string>::iterator m;
  // for(int i=0;i<2;i++)
- //  getline(R2, line);
+ //  getline(R4, line);
 
 //	RX1=line;
 
@@ -137,15 +136,15 @@ void getStagger(string &R2_prefix, string &staggerME,
       staggerME=m->second;
   }
 
-	//getline(R2, line);
-	//getline(R2, line);
+	//getline(R4, line);
+	//getline(R4, line);
 	//QX1=line;
 }
 
-//getCode(I2,codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,stagger,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
-//getCode(I2,codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,stagger,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
+//getCode(R2,codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,stagger,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
+//getCode(R2,codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,stagger,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
 
-void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, string &codeD, string &codeA, string &codeC,
+void getCode(igzstream &R2, string &R3_orig, string &R3_qual, string &codeB, string &codeD, string &codeA, string &codeC,
 						string& RX1, string& QX1, string& read_type1, string& read_type2,
 						int code_total_length, string &staggerME, string code_letter1, string code_letter2, string code_letter3, string code_letter4, 
 						map<string,string> bc1, map<string,string> bc2, map<string,string> bc3, map<string,string> bc4){
@@ -167,7 +166,7 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
   sss << stagger_passed;
 	sss >> sstagger;
   for(int i=0;i<2;i++)
-    getline(I2, line);
+    getline(R2, line);
 	line=line.append(R3_orig);
 
 	RX1=line;
@@ -223,8 +222,8 @@ void getCode(igzstream &I2, string &R3_orig, string &R3_qual, string &codeB, str
 		read_type1="unclear";
 	}
 
-  getline(I2, line);
-	getline(I2, line);
+  getline(R2, line);
+	getline(R2, line);
 	QX1=line;
 	QX1=QX1.append(R3_qual);
 }
@@ -275,32 +274,32 @@ void getPlateCode(igzstream &I1, string &codePLATE,
 
 int main (int argc, char* argv[])
 {
+  string path_to_reads=argv[1];
+  string path_output=argv[2];
+  string path_bc=argv[3];
 
-  load_all_barcodes();
+  load_all_barcodes(path_bc);
   cout << "loaded barcodes: " << bc_A.size() << " A, " << bc_B.size() << " B, "
                               << bc_C.size() << " C, " << bc_D.size() << " D, " << bc_PLATE.size() << " PLATE, " << bc_ME.size() << " ME " << endl;
 
 
-  string path_to_reads=argv[1];
-  string path_output=argv[2];
-
   string R1_file=path_to_reads+"R1_001.fastq.gz";
-  string R2_file=path_to_reads+"R4_001.fastq.gz";
+  string R2_file=path_to_reads+"R2_001.fastq.gz";
   string R3_file=path_to_reads+"R3_001.fastq.gz";
+  string R4_file=path_to_reads+"R4_001.fastq.gz";
   string I1_file=path_to_reads+"I1_001.fastq.gz";
-  string I2_file=path_to_reads+"R2_001.fastq.gz";
 
-  string R1_outfile=path_output+"_R1_001.fastq.gz";
-  string R2_outfile=path_output+"_R2_001.fastq.gz";
+  string R1_outfile=path_output+"R1_001.fastq.gz";
+  string R2_outfile=path_output+"R2_001.fastq.gz";
 
-	string clearBC_logfile=path_output+"_clearBC.log";
-	string unclearBC_logfile=path_output+"_unclearBC.log";
+	string clearBC_logfile=path_output+"clearBC.log";
+	string unclearBC_logfile=path_output+"unclearBC.log";
 
   igzstream R1(R1_file.c_str());
   igzstream R2(R2_file.c_str());
   igzstream R3(R3_file.c_str());
+  igzstream R4(R4_file.c_str());
   igzstream I1(I1_file.c_str());
-  igzstream I2(I2_file.c_str());
 
 	ogzstream R1_out(R1_outfile.c_str());
 	ogzstream R2_out(R2_outfile.c_str());
@@ -336,7 +335,7 @@ int main (int argc, char* argv[])
 
 	
 
-    posName=line.find(" ");
+    posName=line.find_first_of(" \t");
   	name=line.substr(0,posName+1);
 	
 	//Just getting the header line from Read3 out of the way...
@@ -347,9 +346,9 @@ int main (int argc, char* argv[])
     getline(R3, R3_qual);
 
 	//Just getting the header line from Read2 out of the way...
-	getline(R2, line);
+	getline(R4, line);
 	//Get the first read from Read2 to figure out what the stagger should be
-	getline(R2, R2_orig);
+	getline(R4, R2_orig);
 	R2_prefix=R2_orig.substr(0,10);
 	getStagger(R2_prefix,staggerME,10, bc_ME);
     stagger_num=staggerME.substr(1,1);
@@ -359,8 +358,8 @@ int main (int argc, char* argv[])
 
 
 	if (stagger < 3) {
-		getCode(I2, R3_orig, R3_qual, codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,staggerME,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
-//	    getCode(I2,codeB,codeD,RX2,QX2,read_type2,13, "B", "D", bc_B, bc_D);
+		getCode(R2, R3_orig, R3_qual, codeB,codeD,codeA,codeC,RX1,QX1,read_type1,read_type2,22,staggerME,"B","D","A","C", bc_B, bc_D, bc_A, bc_C);
+//	    getCode(R2,codeB,codeD,RX2,QX2,read_type2,13, "B", "D", bc_B, bc_D);
 	} else {
 		codeA="A00";
 		codeB="B00";
@@ -436,7 +435,7 @@ int main (int argc, char* argv[])
       R1_out<<line<<endl;
     }
     for(int i=0;i<2;i++){
-      getline(R2, line);
+      getline(R4, line);
       if (i == 1) // clip the quality line identical to how it was done for R2_orig->R2_orig_clipped
           line = line.substr(clip_size, line.size()+1);
       R2_out<<line<<endl;
