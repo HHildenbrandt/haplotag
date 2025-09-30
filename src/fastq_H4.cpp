@@ -11,11 +11,12 @@
 
 
 constexpr char usage_msg[] = R"(Usage: fastq_H4 JSON_FILE [OPTIONS]...
-  -h, --help: show this message
+  -h, --help: show this message.
   -f, --force: force overwrite of output directory.
-  --replace "json expr"
-    Ex: --replace '"/range:" "0-1000"'
-  --dry: dry-run
+  -v, --verbose: verbose output.
+  --replace '{"json_pointer": value}'.
+    Ex: --replace '{"/range": "0-1000"}' --replace '{"/barcode/plate/file": "Plate_BC_7.txt"}'
+  --dry: dry-run.
 )";
 
 
@@ -48,11 +49,9 @@ std::pair<size_t, size_t> parse_range(std::string_view str) {
 struct H4 {
   static constexpr size_t blk_size = 10000;   // tuneable
 
-  explicit H4(const nlohmann::json& J);
-
+  explicit H4(const json& Jin, bool verbose);
   bool has_stagger() const noexcept { return !stagger.empty(); }
   bool has_plate() const noexcept { return !plate.empty(); }
-
   void dry_run();
   void run();
 
@@ -78,13 +77,14 @@ struct H4 {
   std::filesystem::path bc_root;
   std::filesystem::path gz_sub;
   std::filesystem::path out_dir;
+  const json& J;
 };
 
 
 #define optional_json(expr) try { expr; } catch (json::exception&) {}
 
 
-H4::H4(const json& J) {
+H4::H4(const json& Jin, bool verbose) : verbose(verbose), J(std::move(Jin)) {
   auto root = J.at("root").get<fs::path>();
   range = parse_range(J.at("range").get<std::string>());
   if (range.first >= range.second) throw "invalid range";
@@ -141,7 +141,7 @@ void H4::run() {
   }
   if (i != range.first) throw "range exceeds number of reads";
   // work pipeline
-  auto future_queue = std::deque<std::future<matches_t>>{};
+  auto match_queue = std::deque<std::future<matches_t>>{};
   bool any_eof = false;
   for (; !any_eof && (i < range.second); i += blk_size) {
     // collect max. blk_size sequences from all fastq.gz files
@@ -150,7 +150,7 @@ void H4::run() {
       any_eof |= R->eof();
       blks.emplace_back(R->operator()(blk_size));
     }
-    future_queue.emplace_back(gPool->async([this, blks = std::move(blks)]() {
+    match_queue.emplace_back(gPool->async([this, blks = std::move(blks)]() {
       auto matches = matches_t{};
       matches.reserve(blk_size);
       for (auto& seq : blks[3]) {
@@ -158,16 +158,20 @@ void H4::run() {
       }
       return matches;
     }));
-    while (!future_queue.empty() && (std::future_status::ready == future_queue.front().wait_for(0s))) {
-      auto m = std::move(future_queue.front().get());
-      future_queue.pop_front();
+    // anything read yet?
+    while (!match_queue.empty() && (std::future_status::ready == match_queue.front().wait_for(0s))) {
+      auto m = std::move(match_queue.front().get());
+      match_queue.pop_front();
     }
   }
-  while (!future_queue.empty()) {
-    auto m = std::move(future_queue.front().get());
-    future_queue.pop_front();
+  // left-overs
+  while (!match_queue.empty()) {
+    auto m = std::move(match_queue.front().get());
+    match_queue.pop_front();
   }
-  int dummy = 0;
+  // dump json to output folder for reference
+  auto js = std::ofstream(out_dir / "H4.json");
+  js << J.dump();
 }
 
 
@@ -227,6 +231,7 @@ void H4::dry_run() {
 int main(int argc, const char** argv) {
   try {
     bool force = false;
+    bool verbose = false;
     bool dry_run = false;
     std::vector<std::string> replace{};
     std::string json_file;
@@ -238,13 +243,15 @@ int main(int argc, const char** argv) {
       else if (0 == std::strcmp(argv[i], "-f") * std::strcmp(argv[i], "--force")) {
         force = true;
       }
+      else if (0 == std::strcmp(argv[i], "-v") * std::strcmp(argv[i], "--verbose")) {
+        verbose = true;
+      }
       else if (0 == std::strcmp(argv[i], "--dry")) {
         dry_run = true;
       }
       else if (0 == std::strcmp(argv[i], "--replace")) {
         if ((i + 1) > argc) throw "--replace: missing arguments";
-        replace.emplace_back(argv[i+1]);
-        ++i;
+        replace.emplace_back(argv[++i]);
       }
       else if (std::filesystem::exists(argv[i])) {
         json_file = argv[i];
@@ -260,16 +267,25 @@ int main(int argc, const char** argv) {
     }
     std::ifstream is(json_file);
     auto J = nlohmann::json::parse(is, nullptr, true, /* ignore_comments */ true);
-    auto h4 = H4{J};
-    if (fs::exists(h4.out_dir)) { 
+    for (auto& r : replace) {
+      auto R = json::parse(r);
+      for (auto& e : R.items()) {
+        J[json::json_pointer(e.key())] = e.value();
+      }
+    }
+    auto h4 = H4{J, verbose};
+    if (dry_run) {
+      h4.dry_run();
+      return 0;
+    }
+    else if (fs::exists(h4.out_dir)) { 
       if (!force) {
         throw "Output directory already exists. Consider '-f'";
       }
       fs::remove_all(h4.out_dir);
     }
     fs::create_directories(h4.out_dir);
-    (dry_run) ? h4.dry_run() : h4.run();
-
+    h4.run();
     return 0;
   }
   catch (std::exception& err) {
