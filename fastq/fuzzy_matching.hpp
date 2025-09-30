@@ -71,6 +71,7 @@ namespace fastq {
   
 
   enum ReadType{
+    invalid,        // code length violation
     unclear,        // multiple occurrences of same min ed
     correct,        // exact match, ed == 0
     corrected,      // unique min ed
@@ -79,18 +80,14 @@ namespace fastq {
 
 
   struct match_t {
-    const barcode_t& bc;
     int idx = 0;          // index finto bc, 0 if read_type == unclear
     int ed = -1;          // edit distance
-    ReadType read_type = ReadType::unclear;
-    
-    str_view tag() const { return bc[idx].tag; }
-    str_view code() const { return bc[idx].code; }
+    ReadType read_type = ReadType::invalid;
   };
 
 
-  inline match_t min_edit_distance(str_view RX, const barcode_t& bc) {
-    if (RX.empty()) return { .bc = bc };  // unclear
+  inline match_t min_edit_distance(str_view RX, size_t code_length, const barcode_t& bc) {
+    if (RX.length() < code_length) return {};  // invalid
     int min_ed = 1'000'000;
     int idx = 0;
     ReadType rt = ReadType::unclear;
@@ -108,7 +105,7 @@ namespace fastq {
         rt = ReadType::unclear;
       }      
     }
-    return { .bc = bc, .idx = (rt == ReadType::unclear) ? 0 : idx, .ed = min_ed, .read_type = rt };
+    return { .idx = (rt == ReadType::unclear) ? 0 : idx, .ed = min_ed, .read_type = rt };
   }
   
 }

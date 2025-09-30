@@ -1,6 +1,6 @@
 {
     "root": "/home/hanno/haplotag/Pilot-1/H4/",
-    "range": "",
+    "range": "0-14444",
     "num_threads": -1,
     "barcodes": {
         "root": "",
@@ -26,7 +26,7 @@
         },
         "stagger": {
             "file": "BC_ME.txt",
-            "unclear_tag": "S9",
+            "unclear_tag": "S00",
             "sort_by_tag": true
         }
     },

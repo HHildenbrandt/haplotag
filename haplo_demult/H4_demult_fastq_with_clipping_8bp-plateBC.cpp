@@ -277,7 +277,11 @@ int main (int argc, char* argv[])
   string path_to_reads=argv[1];
   string path_output=argv[2];
   string path_bc=argv[3];
-
+  size_t range = -1;
+  char* endptr = nullptr;
+  if (argc > 4) {
+    range = std::strtoull(argv[4], &endptr, 10);
+  }
   load_all_barcodes(path_bc);
   cout << "loaded barcodes: " << bc_A.size() << " A, " << bc_B.size() << " B, "
                               << bc_C.size() << " C, " << bc_D.size() << " D, " << bc_PLATE.size() << " PLATE, " << bc_ME.size() << " ME " << endl;
@@ -330,9 +334,12 @@ int main (int argc, char* argv[])
   stringstream ss; 
   int stagger=9;
   string stagger_num;
+  size_t seq_count = 0;
 	while (getline(R1, line))
-	{
-
+	{ 
+    if (seq_count++ > range) {
+      break;
+    }
 	
 
     posName=line.find_first_of(" \t");
