@@ -83,10 +83,11 @@ struct H4 {
     bc_B = gen_bc("B");
     bc_C = gen_bc("C");
     bc_D = gen_bc("D");
+    // plate is optional
     if (!jbc.at("plate").at("file").get<std::string>().empty()) {
       plate = gen_bc("plate");
     }
-    optional_json(stagger = gen_bc("stagger"));
+    stagger = gen_bc("stagger");
 
     // reads
     auto jr = J.at("reads");
@@ -98,12 +99,9 @@ struct H4 {
     if (!plate.empty()) {
       I1 = Splitter{gz_sub / jr.at("I1").get<std::string>()};
     }
-    
     // output
     auto jout = J.at("output");    
     out_dir = root / jout.at("subdir").get<std::string>();
-    R1_out.reset(new fastq::writer_t<>{out_dir / jout.at("R1").get<std::string>(), gPool});
-    R2_out.reset(new fastq::writer_t<>{out_dir / jout.at("R2").get<std::string>(), gPool});
   }
 
   bool has_stagger() const noexcept { return !stagger.empty(); }
@@ -157,12 +155,14 @@ struct H4 {
                   + bc_C.max_code_length();
     cout << "    code_total_length:  " << ctl << '\n';
     cout << "output\n";
-    cout << "    R1:  " << R1_out->path() << '\n';
-    cout << "    R2:  " << R2_out->path() << '\n';
+    cout << "    R1:  " << out_dir / J.at("/output/R1"_json_pointer).get<std::string>() << '\n';
+    cout << "    R2:  " << out_dir / J.at("/output/R2"_json_pointer).get<std::string>() << '\n';
   }
 
   template <bool has_plate>
   void run() {
+    R1_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
+    R2_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
     size_t i = 0;
     // skip to range.first
     for (; i < range.first; ++i) {
@@ -173,7 +173,7 @@ struct H4 {
     }
     if (i != range.first) throw "range exceeds number of reads";
     // work pipeline
-    auto match_queue = std::deque<std::future<matches_t>>{};
+    auto match_queue = std::deque<std::future<h4_matches_t>>{};
     bool any_eof = false;
     for (; !any_eof && (i < range.second); i += blk_size) {
       // collect block of reads
@@ -244,25 +244,27 @@ struct H4 {
 private:
   struct h4_match_t {
     int sn = 0;
-    fastq::match_t a, b, c, d, p;
+    fastq::match_t s, a, b, c, d, p;
+    bool any_invalid = false;
+    bool any_unclear = false;
   };
-  using matches_t = std::pair<std::vector<h4_match_t>, blks_t>;
+  using h4_matches_t = std::pair<std::vector<h4_match_t>, blks_t>;
 
   // matching 
   template <bool has_plate>
-  matches_t blk_match(blks_t&& blks) {
+  h4_matches_t blk_match(blks_t&& blks) {
     auto matches = std::vector<h4_match_t>{};
     // minimum code lengths
     const size_t scl = stagger.max_code_length();
     const size_t bcl = bc_B.max_code_length();           
-    const size_t dcl = bcl; // not bc_D.max_code_length();
+    const size_t dcl = bc_D.max_code_length();
     const size_t ccl = bc_C.max_code_length();  
-    const size_t pcl = plate.max_code_length();
+    const size_t pcl = plate.max_code_length();   // 0 if empty
     std::string RX{};
     for (size_t i = 0; i < blks[0].size(); ++i) {
       auto& m = matches.emplace_back();
-      const auto sm = fastq::min_edit_distance(fastq::max_substr(blks[R4_][i][1], 0, scl), scl, stagger);
-      m.sn = (sm.read_type <= fastq::ReadType::unclear) ? 0 : sm.idx - 1;   // rerquires 'sorted' stagger barcodes
+      m.s = fastq::min_edit_distance(fastq::max_substr(blks[R4_][i][1], 0, scl), scl, stagger);
+      m.sn = (m.s.rt <= fastq::ReadType::unclear) ? 0 : m.s.idx - 1;   // rerquires 'sorted' stagger barcodes
       RX = blks[R2_][i][1];
       RX.append(blks[R3_][i][1]);
       m.b = fastq::min_edit_distance(fastq::max_substr(RX, bcl + 1, bcl), bcl, bc_B);
@@ -273,14 +275,32 @@ private:
       if constexpr (has_plate) {
         m.p = fastq::min_edit_distance(fastq::max_substr(blks[I1_][i][1], 0, pcl), pcl, plate);
       }
+      // summary
+      for (fastq::ReadType rt : { m.s.rt, m.a.rt, m.b.rt, m.c.rt, m.d.rt, m.p.rt }) {
+        m.any_invalid |= (rt == fastq::ReadType::invalid);
+        m.any_unclear |= (rt == fastq::ReadType::unclear);
+      }
     }
     return { std::move(matches), std::move(blks) };
   }
 
   // output processing
   template <bool has_plate>
-  void process_matches(const matches_t& matches) {
-    int dummy = 0;
+  void process_matches(const h4_matches_t& h4_matches) {
+    const auto& matches = h4_matches.first;
+    const auto& blks = h4_matches.second;
+    auto put2 = [this](fastq::str_view str) { R1_out->put(str); R2_out->put(str); };
+    for (size_t i = 0; i < blks[0].size(); ++i) {
+      const auto C = blks[R1_][i][0];
+      put2(C.substr(0, C.find_first_of(" \t")));
+      put2("\tBX:Z:");
+      put2(bc_A[matches[i].a.idx].tag);
+      put2(bc_C[matches[i].c.idx].tag);
+      put2(bc_B[matches[i].b.idx].tag);
+      put2(bc_D[matches[i].d.idx].tag);
+      put2("\n");
+      int dummy = 0;
+    }
   }
 };
 

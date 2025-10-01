@@ -82,7 +82,7 @@ namespace fastq {
   struct match_t {
     int idx = 0;          // index finto bc, 0 if read_type == unclear
     int ed = -1;          // edit distance
-    ReadType read_type = ReadType::invalid;
+    ReadType rt = ReadType::invalid;
   };
 
 
@@ -105,7 +105,7 @@ namespace fastq {
         rt = ReadType::unclear;
       }      
     }
-    return { .idx = (rt == ReadType::unclear) ? 0 : idx, .ed = min_ed, .read_type = rt };
+    return { .idx = (rt == ReadType::unclear) ? 0 : idx, .ed = min_ed, .rt = rt };
   }
   
 }
