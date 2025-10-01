@@ -63,7 +63,7 @@ struct H4 {
     auto root = J.at("root").get<fs::path>();
     range = parse_range(J.at("range").get<std::string>());
     if (range.first >= range.second) throw "invalid range";
-    gPool.reset( new hahi::pool_t(J.at("num_threads").get<unsigned>()));
+    gPool.reset( new hahi::pool_t(J.at("pool_threads").get<unsigned>()));
 
     // barcodes
     auto jbc = J.at("barcodes");
@@ -110,7 +110,7 @@ struct H4 {
   void dry_run() {
     using std::cout;
     cout << "range: " << range.first << '-' << range.second << '\n';
-    cout << "num_threads: " << gPool->num_threads() << '\n';
+    cout << "pool_threads: " << gPool->num_threads() << '\n';
     auto bc_stats = [](const char* name, const auto& bc) { 
       cout << name << "  ";
       if (bc.empty()) {
@@ -289,7 +289,8 @@ private:
   void process_matches(const h4_matches_t& h4_matches) {
     const auto& matches = h4_matches.first;
     const auto& blks = h4_matches.second;
-    auto put2 = [this](fastq::str_view str) { R1_out->put(str); R2_out->put(str); };
+    auto put2 = [this](fastq::str_view str) { R1_out->put(str); R2_out->put(str); };     // w/o newline
+    auto puts2 = [this](fastq::str_view str) { R1_out->puts(str); R2_out->puts(str); };  // w newline
     for (size_t i = 0; i < blks[0].size(); ++i) {
       const auto C = blks[R1_][i][0];
       put2(C.substr(0, C.find_first_of(" \t")));
@@ -298,7 +299,11 @@ private:
       put2(bc_C[matches[i].c.idx].tag);
       put2(bc_B[matches[i].b.idx].tag);
       put2(bc_D[matches[i].d.idx].tag);
-      put2("\n");
+      if constexpr (has_plate) {
+        put2("-");
+        put2(plate[matches[i].p.idx].tag);
+      }
+      puts2({});
       int dummy = 0;
     }
   }

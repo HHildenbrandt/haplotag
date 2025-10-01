@@ -343,7 +343,7 @@ int main (int argc, char* argv[])
 	
 
     posName=line.find_first_of(" \t");
-  	name=line.substr(0,posName+1);
+    name=line.substr(0,posName);  // was: posName+1, whitespace added later now.
 	
 	//Just getting the header line from Read3 out of the way...
     getline(R3, R3_orig);
@@ -386,7 +386,7 @@ int main (int argc, char* argv[])
 		//ORIGINAL - getPlateCode(I1,codePLATE,PX1,PX1Q,read_type1,8,"P",bc_PLATE);
        getPlateCode(I1,codePLATE,PX1,PX1Q,read_type3,8,"P",bc_PLATE);
 
-    name=name.append("BX:Z:");
+    name=name.append("\tBX:Z:");  // was "BX:Z:" (could be space or tab)
     name=name.append(codeA);
     name=name.append(codeC);
     name=name.append(codeB);

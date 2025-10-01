@@ -1,7 +1,7 @@
 {
     "root": "/home/hanno/haplotag/Pilot-1/H4/",
-    "range": "0-14444",
-    "num_threads": -1,
+    "range": "",
+    "pool_threads": -1,
     "barcodes": {
         "root": "",
         "A": {
@@ -31,7 +31,7 @@
         }
     },
     "reads": {
-        "subdir": "subset",
+        "subdir": "complete",
         "R1": "R1_001.fastq.gz",
         "R2": "R2_001.fastq.gz",
         "R3": "R3_001.fastq.gz",
@@ -39,7 +39,7 @@
         "I1": "I1_001.fastq.gz"
     },
     "output": {
-        "subdir": "subset/out",
+        "subdir": "complete/out",
         "clipping": true,
         "R1": "R1_001.fastq.gz",
         "R2": "R2_001.fastq.gz"
