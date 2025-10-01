@@ -161,10 +161,8 @@ struct H4 {
 
   template <bool has_plate>
   void run() {
-    R1_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
-    R2_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
     size_t i = 0;
-    // skip to range.first
+    // skip head of range
     for (; i < range.first; ++i) {
       for (auto* R : { &R1, &R2, &R3, &R4, &I1 }) {
         if (R->eof()) break;
@@ -172,6 +170,11 @@ struct H4 {
       }
     }
     if (i != range.first) throw "range exceeds number of reads";
+
+    // lyazy creation of writers
+    R1_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
+    R2_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
+
     // work pipeline
     auto match_queue = std::deque<std::future<h4_matches_t>>{};
     bool any_eof = false;
