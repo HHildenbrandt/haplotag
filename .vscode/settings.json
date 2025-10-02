@@ -90,7 +90,9 @@
         "numbers": "cpp",
         "ranges": "cpp",
         "cinttypes": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "*.def": "cpp",
+        "*.inc": "cpp"
     },
     "telemetry.editStats.enabled": false,
     "telemetry.feedback.enabled": false

@@ -25,6 +25,8 @@
 #include <string_view>
 #include <algorithm>
 #include <memory>
+#define WITH_GZFILEOP
+#include <zlib-ng.h>
 
 
 namespace fastq {

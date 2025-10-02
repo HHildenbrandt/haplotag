@@ -41,6 +41,8 @@ namespace hahi {
   //
   class pool_t {
   public:
+    static constexpr unsigned max_threads = 64;   // current limitation
+
     explicit pool_t(unsigned num_threads = -1) 
     : sem_{std::clamp(num_threads, 1u, std::thread::hardware_concurrency())} {
       num_threads = std::clamp(num_threads, 1u, std::thread::hardware_concurrency());

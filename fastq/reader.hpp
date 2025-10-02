@@ -1,25 +1,7 @@
 /* fastq/reader.hpp
  *
  * Copyright (c) 2025 Hanno Hildenbrandt <h.hildenbrandt@rug.nl>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
-*/
+ */
 
 #pragma once
 
@@ -41,7 +23,6 @@
 #include <string_view>
 #include <device/queue.hpp>
 #include <device/mutex.hpp>
-#include <zlib.h>
 #include "fastq.hpp"
 
 
@@ -99,15 +80,15 @@ namespace fastq {
       reader_t& operator=(reader_t&&) = default;
       
       explicit reader_t(const std::filesystem::path& path) : path_(path) {
-        if (nullptr == (gzin_ = gzopen(path.string().c_str(), "rb"))) {
+        if (nullptr == (gzin_ = zng_gzopen(path.string().c_str(), "rb"))) {
           throw std::runtime_error(std::string("fastq::reader_t: failed to open input file \'") + path.string() + '\'');
         }
-        gzbuffer(gzin_, gz_buffer);
+        zng_gzbuffer(gzin_, gz_buffer);
         deflate_ = std::jthread([&, gzin = gzin_](std::stop_token stok) {
           try {
             while (!stok.stop_requested()) {
               auto buf =  chunk_ptr(static_cast<char*>(alloc_.alloc(chunk_size + window)), &allocator_t::free);
-              const auto avail = static_cast<size_t>(gzread(gzin, buf.get() + window, static_cast<unsigned>(chunk_size)));
+              const auto avail = static_cast<size_t>(zng_gzread(gzin, buf.get() + window, static_cast<unsigned>(chunk_size)));
               if (avail == size_t(-1)) {  // error
                 throw -1;
               }
@@ -133,7 +114,7 @@ namespace fastq {
           while (chunks_.try_pop().has_value()) ;   // deplete file queue. allow reader_ to push sentinel
           deflate_.join();
         }
-        gzclose(gzin_);
+        zng_gzclose(gzin_);
       }
 
       // bytes deflated

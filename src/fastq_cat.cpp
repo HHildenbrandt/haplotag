@@ -18,7 +18,7 @@ With no FILE, or when FILE is -, read standard input.
   -m <mssk>: only output unmasked lines (max. 64Bit)
     Ex: -m 0010, outputs 2nd line of every 4-line block.
   -o <FILE>: compressed output file
-    If not given, writes to standard output.
+    If not given, writes uncompressed to standard output.
   -r <line range>: only output lines in given range.
     Ex: -r 0-10; -r 10:3
 )";

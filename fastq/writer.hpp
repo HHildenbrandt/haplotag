@@ -1,26 +1,8 @@
 /* fastq/writer.hpp
  *
  * Copyright (c) 2025 Hanno Hildenbrandt <h.hildenbrandt@rug.nl>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
-*/
-
+ */
+ 
 /*
  * Loosely based on Mark Adler's pigz code: 
  * https://github.com/madler/pigz.git
@@ -42,7 +24,6 @@
 #include <utility>
 #include <bit>
 #include <device/pool.hpp>
-#include <zlib.h>
 #include "fastq.hpp"
 
 
@@ -52,21 +33,21 @@ namespace fastq {
   namespace {
 
     // initialize a raw deflate stream (no header, no checksum)
-    inline void z_stream_init(z_stream& strm) {
-      std::memset(&strm, 0, sizeof(z_stream));
-      auto ret = deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -15, 9, Z_DEFAULT_STRATEGY);
+    inline void zng_stream_init(zng_stream& strm) {
+      std::memset(&strm, 0, sizeof(zng_stream));
+      auto ret = zng_deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -15, 9, Z_DEFAULT_STRATEGY);
       if (ret == Z_MEM_ERROR) {
-        throw std::runtime_error("fastq::z_stream_init: not enough memory");
+        throw std::runtime_error("fastq::zng_stream_init: not enough memory");
       }
       if (ret != Z_OK) {
-        throw std::runtime_error("fastq::z_stream_init: internal error");
+        throw std::runtime_error("fastq::zng_stream_init: internal error");
       }
     }
 
 
-    inline void z_stream_reset(z_stream& strm) {
-      (void)deflateReset(&strm);
-      (void)deflateParams(&strm, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY);
+    inline void zng_stream_reset(zng_stream& strm) {
+      (void)zng_deflateReset(&strm);
+      (void)zng_deflateParams(&strm, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY);
     }
 
 
@@ -212,9 +193,9 @@ namespace fastq {
         using cfuture = std::future<std::pair<char* /* out buf */, uint32_t /* avail */>>;
         auto cf = std::vector<cfuture>{};
 
-        // set up numtreads z_streams
+        // set up numtreads zng_streams
         const size_t gz_buffer = (4 * chunk_size) / 3;
-        std::vector<z_stream> strms{size_t(nt)};
+        std::vector<zng_stream> strms{size_t(nt)};
         for (auto& strm : strms) {
           std::memset(&strm, 0, sizeof(strm));
         }
@@ -222,14 +203,14 @@ namespace fastq {
           auto raw_out = std::unique_ptr<char[]>(new char[nt * gz_buffer + 4096]);
           auto out = (char*)(void*)((uintptr_t(raw_out.get()) + 4095) & ~4095);  // align to page size
           for (auto& strm : strms) {
-            z_stream_init(strm);
+            zng_stream_init(strm);
           }
-          uint32_t crc = crc32(0L, nullptr, 0);
+          uint32_t crc = zng_crc32(0L, nullptr, 0);
           uint64_t tot_bytes = 0;
           auto prep_strm = [&](int idx, uint32_t avail_in, char* buf) -> unsigned {
             auto tmp = std::min(avail_in, chunk_size);
             auto& strm = strms[idx];
-            z_stream_reset(strm);
+            zng_stream_reset(strm);
             strm.avail_in = tmp;
             strm.next_in = (unsigned char*)buf + idx * chunk_size;
             strm.avail_out = gz_buffer;
@@ -252,16 +233,16 @@ namespace fastq {
             cf.clear();
             for (auto j = 0; j < nct; ++j) {
               cf.emplace_back(
-                pool->async([](z_stream* strm) {
+                pool->async([](zng_stream* strm) {
                   const auto out = strm->next_out;
                   const int flush = std::exchange(strm->data_type, 2);  // fix abuse
-                  deflate(strm, flush);
+                  zng_deflate(strm, flush);
                   assert(strm->avail_in == 0);   // all input consumed
                   return std::pair<char*, uint32_t>{ (char*)out, strm->avail_out };
                 }, &strms[j])
               );
             }
-            crc = crc32(crc, (unsigned char*)buf.data(), buf.size());
+            crc = zng_crc32(crc, (unsigned char*)buf.data(), buf.size());
             for (auto j = 0; j < nct; ++j) {
               // write deflate chunks in order
               auto [cout, avail] = cf[j].get();
@@ -279,7 +260,7 @@ namespace fastq {
         catch (...) {
           eptr_ = std::current_exception();
         }
-        for (auto& strm : strms) (void)deflateEnd(&strm);
+        for (auto& strm : strms) (void)zng_deflateEnd(&strm);
         gzout.close();
       });
     }

@@ -23,11 +23,12 @@ constexpr char usage_msg[] = R"(Usage: fastq_H4 JSON_FILE [OPTIONS]...
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
 using json = nlohmann::json;
+using Splitter = fastq::seq_field_splitter<0b1111>;
 
 
 // global thread-pool
+// the pool is shared betweeen matching and compressing jobs
 std::shared_ptr<hahi::pool_t> gPool;
-using Splitter = fastq::seq_field_splitter<0b1111>;
 
 
 // parse "range" value
@@ -57,12 +58,14 @@ enum ReadIdx {
 
 struct H4 {
   using blks_t = std::vector<Splitter::blk_type>; 
-  static constexpr size_t blk_size = 10000;   // tuneable
+  static constexpr size_t blk_size = 10000;   // non-sensitive tuneable
 
   explicit H4(const json& Jin, bool verbose) : verbose(verbose), J(Jin) {
     auto root = J.at("root").get<fs::path>();
     range = parse_range(J.at("range").get<std::string>());
     if (range.first >= range.second) throw "invalid range";
+
+    // create thread pool
     gPool.reset( new hahi::pool_t(J.at("pool_threads").get<unsigned>()));
 
     // barcodes
@@ -161,7 +164,11 @@ struct H4 {
 
   template <bool has_plate>
   void run() {
-    size_t i = 0;
+    // layzy creation of writers
+    R1_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
+    R2_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
+
+    size_t i = 0; // sequence number
     // skip head of range
     for (; i < range.first; ++i) {
       for (auto* R : { &R1, &R2, &R3, &R4, &I1 }) {
@@ -170,10 +177,6 @@ struct H4 {
       }
     }
     if (i != range.first) throw "range exceeds number of reads";
-
-    // lyazy creation of writers
-    R1_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
-    R2_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
 
     // work pipeline
     auto match_queue = std::deque<std::future<h4_matches_t>>{};
@@ -198,20 +201,22 @@ struct H4 {
       for (size_t i = 1; i < blks.size() - !has_plate; ++i) {
         if (blks[i].size() != exp) throw "inconsistent number of sequences in input";
       }
-      // move block into matching thread
+      // enqueue block-matching job to one of the matching-thread
+      // blocks until a thread is available in gPool
       match_queue.emplace_back(gPool->async([this, blks = std::move(blks)]() mutable {
         return this->blk_match<has_plate>(std::move(blks));
       }));
       // anything ready yet?
+      // never blocks
       while (!match_queue.empty() && (std::future_status::ready == match_queue.front().wait_for(0s))) {
-        auto m = match_queue.front().get();
+        auto m = match_queue.front().get();   // doesn's block either
         match_queue.pop_front();
         process_matches<has_plate>(m);
       }
     }
     // left-overs
     while (!match_queue.empty()) {
-      auto m = match_queue.front().get();
+      auto m = match_queue.front().get();   // might block
       match_queue.pop_front();
       process_matches<has_plate>(m);
     }
@@ -294,19 +299,47 @@ private:
     const auto& blks = h4_matches.second;
     auto put2 = [this](fastq::str_view str) { R1_out->put(str); R2_out->put(str); };     // w/o newline
     auto puts2 = [this](fastq::str_view str) { R1_out->puts(str); R2_out->puts(str); };  // w newline
+    const size_t pcl = plate.max_code_length();   // 0 if empty
     for (size_t i = 0; i < blks[0].size(); ++i) {
-      const auto C = blks[R1_][i][0];
-      put2(C.substr(0, C.find_first_of(" \t")));
+      const auto& match = matches[i];
+
+      // compile comments
+      const auto name = blks[R1_][i][0];
+      put2(name.substr(0, name.find_first_of(" \t")));
       put2("\tBX:Z:");
-      put2(bc_A[matches[i].a.idx].tag);
-      put2(bc_C[matches[i].c.idx].tag);
-      put2(bc_B[matches[i].b.idx].tag);
-      put2(bc_D[matches[i].d.idx].tag);
+      put2(bc_A[match.a.idx].tag);
+      put2(bc_C[match.c.idx].tag);
+      put2(bc_B[match.b.idx].tag);
+      put2(bc_D[match.d.idx].tag);
       if constexpr (has_plate) {
         put2("-");
-        put2(plate[matches[i].p.idx].tag);
+        put2(plate[match.p.idx].tag);
       }
+      put2("\tRX:Z:");
+      put2(blks[R2_][i][1]);
+      put2(blks[R3_][i][1]);
+      if constexpr (has_plate) {
+        put2("+");
+        put2(blks[I1_][i][1]);
+      }
+      put2("\tQX:Z:");
+      put2(blks[R2_][i][3]);
+      put2(blks[R3_][i][3]);
+      put2("+");
+      put2(blks[I1_][i][3]);
       puts2({});
+
+      // copy over unchanged fields to R1_out
+      for (auto j : {1,2,3}) R1_out->puts(blks[R1_][i][j]);
+
+      // copy clipped fields to R2_out
+      auto clip_size = stagger.max_code_length() + 1;
+      clip_size += (match.a.rt == fastq::ReadType::unclear) 
+                   ? bc_A.max_code_length()
+                   : bc_A[match.a.idx].code.length();
+      R2_out->puts(fastq::max_substr(blks[R4_][i][1], clip_size));
+      R2_out->puts(blks[R4_][i][2]);
+      R2_out->puts(fastq::max_substr(blks[R4_][i][3], clip_size));
       int dummy = 0;
     }
   }

@@ -17,6 +17,9 @@
 
 using namespace std;
 
+const std::string nonexist = "AGAGAGAG";
+
+
 string barcode_A="BC_A_H4.txt";
 string barcode_B="BC_B.txt";
 string barcode_C="BC_C_H4.txt";
@@ -266,6 +269,8 @@ void getPlateCode(igzstream &I1, string &codePLATE,
                 read_type3="unclear";
         }
 
+  if (codePLATE == "P00") 
+    codePLATE += '0';   // consistent tag-length
   getline(I1, line);
         getline(I1, line);
         QX1=line;
@@ -337,7 +342,7 @@ int main (int argc, char* argv[])
   size_t seq_count = 0;
 	while (getline(R1, line))
 	{ 
-    if (seq_count++ > range) {
+    if (++seq_count > range) {
       break;
     }
 	

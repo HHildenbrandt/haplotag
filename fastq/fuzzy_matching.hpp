@@ -1,3 +1,8 @@
+/* fastq/reader.hpp
+ *
+ * Copyright (c) 2025 Hanno Hildenbrandt <h.hildenbrandt@rug.nl>
+ */
+
 #pragma once
 
 #include <cassert>

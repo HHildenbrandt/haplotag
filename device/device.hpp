@@ -129,9 +129,10 @@ namespace hahi {
       enqueue_detach([](){});   // send 2nd sentinel (fool task_sem_)
     };
 
+    // enque job
+    // returns the job's std::future
     template <typename Fun, typename... Args>
-    [[nodiscard]] std::future<std::invoke_result_t<std::decay_t<Fun>, std::decay_t<Args>...>> enqueue(Fun&& fun, Args&&...args) 
-    {
+    [[nodiscard]] std::future<std::invoke_result_t<std::decay_t<Fun>, std::decay_t<Args>...>> enqueue(Fun&& fun, Args&&...args) {
       auto task = detail::one_shot_task(detail::wrap(std::forward<Fun>(fun), std::forward<Args>(args)...));
       auto future = task.get_future();
       queue_.push(std::move(task));

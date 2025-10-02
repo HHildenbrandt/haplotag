@@ -2,7 +2,7 @@
 
 All you need to know about zlib: [Mark Adler's zlib repository](https://github.com/madler/zlib/tree/develop)
 
-```
+```bash
 git clone git@github.com:HHildenbrandt/haplotag.git
 
 cd haplotag
@@ -17,289 +17,144 @@ module load GCC/13
 mkdir build && cd build
 cmake ..
 cmake --build . --config Release
+cd ..
 
-# binaries can be found in ./bin
+# binaries can be found in ~/haplotag/bin:
+bin
+├── fastq_cat
+├── fastq_H4
+├── fastq_paste
+├── H4_demult_fastq_with_clipping_7bp-plateBC
+├── H4_demult_fastq_with_clipping_8bp-plateBC
+└── H4_demult_fastq_with_clipping_noPlateBC
 ```
 
+The binaries are statically linked. You can move/copy them to other places.<br>
+For the remainder of this README, we assume ~/haplotag/bin in included in $PATH:
 
-# Issues
+`export PATH=$PATH:~/haplotag/bin`
 
-## incorrect `code_total_length`
+## fastq_cat
 
-Potential buffer overrun:
+A little tool that behaves similar to `cat`:
 
-```
-codeC_inFile=line.substr(19+sstagger+1,7);    // ??? +7 missing in code_total_length
-```
+```bash
+fastq_cat --help
+Usage: fastq_cp [OPTIONS] [FILE] ...
+Concatenate ranges from fastq[.gz] files.
 
+With no FILE, or when FILE is -, read standard input.
 
-## stagger
-
-```
-# BC_ME.txt
-S2	AGATGTGTAT
-S1	GATGTGTATA
-S0	ATGTGTATAA
-```
-
-Unclear stagger maps to `staggerME = "S00"` in `min_edit_distance`.
-
-```c++
-  getStagger(R2_prefix,staggerME,10, bc_ME);
-  stagger_num=staggerME.substr(1,1);
+  -f: force overwrite of output file.
+  -m <mssk>: only output unmasked lines (max. 64Bit)
+    Ex: -m 0010, outputs 2nd line of every 4-line block.
+  -o <FILE>: compressed output file
+    If not given, writes uncomressed to standard output.
+  -r <line range>: only output lines in given range.
+    Ex: -r 0-10; -r 10:3
 ```
 
-Unclear stagger maps to `stagger_num = 0`.
--> unclear stagger === clear stagger "S0".
+Main purpose is to extract subsets and to support UNIX-style piping:
 
-# plate
-
-```
-# Plate_BC_8.txt
-N501	GCGATCTA
-N502	ATAGAGAG
-P999	GGGGGGGG
+```bash
+# show reads from the first 10 sequences
+fastq_cat Pilot-1/H4/subset/R1_001.fastq.gz -m 0010 -r 0-40
 ```
 
-Unclear plate maps to "P00" (hard to parse downstream).
-
-# data
-
-`/scratch/hb-1000G_str/pilot/raw_fastq`
-
-```
-[hanno@desktop-r4 raw_fastq]$ fastq_cp Pilot-1_I1_001.fastq.gz -v -o dummy.gz
-
-lines read:    28035027960
-bytes read:    480221051846
-lines written: 28035027960
-bytes written: 480197476352
-elapsed time:  259s
+```bash
+# show 1st entry in name field
+fastq_cat Pilot-1/H4/subset/R1_001.fastq.gz -m 0001 -r 0-40 | awk '{print $1}'
 ```
 
-## Naming code <-> data
-
-```c++
-  string R1_file=path_to_reads+"test_H4_R1_001.fastq.gz";
-  string R2_file=path_to_reads+"test_H4_R4_001.fastq.gz";
-  // string R3_file=path_to_reads+"test_H4_R3_001.fastq.gz";   // ??? doesn't exist
-  string R3_file=path_to_reads+"test_R3_001.fastq.gz"; 
-  string I1_file=path_to_reads+"test_H4_I1_001.fastq.gz";      
-  string I2_file=path_to_reads+"test_H4_R2_001.fastq.gz"; 
+```bash
+# create subset
+fastq_cat Pilot-1/H4/complete/R1_001.fastq.gz -r 0-4000 -o Pilot-1/H4/subset/R1_001.fastq.gz
 ```
 
-## output
+## fastq_paste
 
-Mix of '\t' and ' ' delimiter (very hard to parse downstream).
+A little tool that behaves similar to `paste`:
 
-Output files contains a ton of redundant information and are much bigger than the input files.<br>
-Proprietary format (needs a specialized parser anyhow)<br>
-No need for suffixes.<br>
-Exact index-mapping to input files: current output could be reconstructed from input data + some metadata.<br>
+```bash
+fastq_paste --help
+Usage: fastq_paste [OPTIONS] [FILE] ...
+paste line rangess from fastq[.gz] files.
 
-```
-hanno@desktop-r4 pilot]$ fastq_cp test_small_out_R1_001.fastq.gz -m 0001 -r 0-16
-@LH00392:29:22KLTHLT3:6:1101:33962:1240 BX:Z:A21C00B21D00-P00	RX:Z:GCGATCTAGTGTGAACCGTAACCGAG+GAGTCAGCGTAGA	QX:Z:IIIIIIIIIIIIIIIIII9IIII9II+IIIIIII9IIII-
-@LH00392:29:22KLTHLT3:6:1101:33999:1240 BX:Z:A22C00B95D00-P00	RX:Z:GCGATCTAGTAACGTTCCTGCAGCAA+TCGAAGGTGCATC	QX:Z:IIIIIIIIIIIIIIIIIIIIIIIIII+IIIIIIIIIIIII
-@LH00392:29:22KLTHLT3:6:1101:34036:1240 BX:Z:A00C06B20D13-N502	RX:Z:ATAGAGAGGTCCACTAGCCATCGAGA+CAGAGTGTACAGG	QX:Z:IIIIIIIIIIIIIIIIIII9IIIIII+IIIIIIIIII9II
-@LH00392:29:22KLTHLT3:6:1101:34055:1240 BX:Z:A37C00B64D13-N502	RX:Z:ATAGAGAGGTCCTACGACCGCTGCAT+TGGATAGTGTTAG	QX:Z:-I9I9I9IIII99IIII-II9-II99+9II-III9I-II-
-[hanno@desktop-r4 pilot]$ 
-[hanno@desktop-r4 pilot]$ fastq_cp test_small_out_R2_001.fastq.gz -m 0001 -r 0-16
-@LH00392:29:22KLTHLT3:6:1101:33962:1240 BX:Z:A21C00B21D00-P00	RX:Z:GCGATCTAGTGTGAACCGTAACCGAG+GAGTCAGCGTAGA	QX:Z:IIIIIIIIIIIIIIIIII9IIII9II+IIIIIII9IIII-
-@LH00392:29:22KLTHLT3:6:1101:33999:1240 BX:Z:A22C00B95D00-P00	RX:Z:GCGATCTAGTAACGTTCCTGCAGCAA+TCGAAGGTGCATC	QX:Z:IIIIIIIIIIIIIIIIIIIIIIIIII+IIIIIIIIIIIII
-@LH00392:29:22KLTHLT3:6:1101:34036:1240 BX:Z:A00C06B20D13-N502	RX:Z:ATAGAGAGGTCCACTAGCCATCGAGA+CAGAGTGTACAGG	QX:Z:IIIIIIIIIIIIIIIIIII9IIIIII+IIIIIIIIII9II
-@LH00392:29:22KLTHLT3:6:1101:34055:1240 BX:Z:A37C00B64D13-N502	RX:Z:ATAGAGAGGTCCTACGACCGCTGCAT+TGGATAGTGTTAG	QX:Z:-I9I9I9IIII99IIII-II9-II99+9II-III9I-II-
-[hanno@desktop-r4 pilot]$ 
-[hanno@desktop-r4 pilot]$ fastq_cp test_R1_001.fastq.gz -m 0001 -r 0-16 | awk '{print $1}'
-@LH00392:29:22KLTHLT3:6:1101:33962:1240
-@LH00392:29:22KLTHLT3:6:1101:33999:1240
-@LH00392:29:22KLTHLT3:6:1101:34036:1240
-@LH00392:29:22KLTHLT3:6:1101:34055:1240
-[hanno@desktop-r4 pilot]$ 
-[hanno@desktop-r4 pilot]$ fastq_cp test_R2_001.fastq.gz -m 0001 -r 0-16 | awk '{print $1}'
-@LH00392:29:22KLTHLT3:6:1101:33962:1240
-@LH00392:29:22KLTHLT3:6:1101:33999:1240
-@LH00392:29:22KLTHLT3:6:1101:34036:1240
-@LH00392:29:22KLTHLT3:6:1101:34055:1240
+  -f: force overwrite of output file.
+  -m <mssk>: only output unmasked lines (max. 64Bit)
+    Ex: -m 0010, outputs 2nd line of every 4-line block.
+  -o <FILE>: compressed output file
+    If not given, writes to standard output.
+  -r <line range>: only output lines in given range.
+    Ex: -r 0-10; -r 10:3
+  -d: delimiter string
 ```
 
-## Runs
+## fastq_H4
 
-'scratch' is slow - local computation on nvme?<br>
-Organizing input-output relations in directories instead of filename mangling?<br>
-Consider CoW filesystem.<br>
+`H4_demult_fastq_[...]` replacement.
 
-
-### generate bigger fastq files
-
-blow-up every *.gz file found in ../data:
-
-```
-bin$ ./fastq_gen 100000
-bin$ time ./fastq_gen 100000
-found '../data/R2_001.fastq.gz'
-found '../data/test_H4_R2_001.fastq.gz'
-found '../data/I1_001.fastq.gz'
-found '../data/test_R3_001.fastq.gz'
-found '../data/test_R1_001.fastq.gz'
-found '../data/test_H4_R4_001.fastq.gz'
-found '../data/test_R2_001.fastq.gz'
-found '../data/R1_001.fastq.gz'
-found '../data/test_H4_I1_001.fastq.gz'
-found '../data/I2_001.fastq.gz'
-found '../data/test_I2_001.fastq.gz'
-found '../data/test_H4_R1_001.fastq.gz'
-found '../data/test.fastq.gz'
-found '../data/test_I1_001.fastq.gz'
-generating 14 '_gen_*.gz' files...
-2.10772 MB inflated
-177.016 GB deflated
+```bash
+fastq_H4 --help
+Usage: fastq_H4 JSON_FILE [OPTIONS]...
+  -h, --help: show this message.
+  -f, --force: force overwrite of output directory.
+  -v, --verbose: verbose output.
+  --replace '{"json_pointer": value}'.
+    Ex: --replace '{"/range": "0-1000"}' --replace '{"/barcode/plate/file": "Plate_BC_7.txt"}'
+  --dry: dry-run.
 ```
 
-## demult_fastq vs. fastq_fuzzy
+You can find an example `JSON_FILE` in `~\haplotag\src.<br>
+Note that the comments are *not* part of the json.
 
-### License
-
-`demult_fastq` links against `gzStream`, available under LGPL license.<br>
-`fastq_fuzzy` links against `zlib-ng`, available under MIT license.
-
-### bench
-
+```json
+{
+    "root": "/home/hanno/haplotag/Pilot-1/H4/", // root data directory 
+    "range": "",          // if not empty, sequence range e.g. "0-10000", 
+    "pool_threads": -1,   // -1: number of cores used in thread-pool
+    "barcodes": {
+        "root": "",       // directory for the barcode files, same as '/root' if empty
+        "A": {
+            "file": "BC_A_H4.txt",
+            "unclear_tag": "A00"
+        },
+        "B": {
+            "file": "BC_B.txt",
+            "unclear_tag": "B00"
+        },
+        "C": {
+            "file": "BC_C_H4.txt",
+            "unclear_tag": "C00"
+        },
+        "D": {
+            "file": "BC_D.txt",
+            "unclear_tag": "D00"
+        },
+        "plate": {
+            "file": "Plate_BC_8.txt",
+            "unclear_tag": "P000"
+        },
+        "stagger": {
+            "file": "BC_ME.txt",
+            "unclear_tag": "S00",
+            "sort_by_tag": true     // this is required for now
+        }
+    },
+    "reads": {
+        "subdir": "complete",       // path below /root
+        "R1": "R1_001.fastq.gz",
+        "R2": "R2_001.fastq.gz",
+        "R3": "R3_001.fastq.gz",
+        "R4": "R4_001.fastq.gz",
+        "I1": "I1_001.fastq.gz"
+    },
+    "output": {
+        "subdir": "complete/out",   // path below /root
+        "clipping": true,
+        "R1": "R1_001.fastq.gz",
+        "R2": "R2_001.fastq.gz"
+    }
+}
 ```
-bin& ./fastq_gen 100000
-
-bin$ time ./demult_fastq 
-loaded barcodes: 96 A, 96 B, 96 C, 96 D 
-real    36m89.157s
-user    35m46.333s
-sys     0m2.273s
-
-bin$ time ./fastq_fuzzy 
-starting
-*  50000000 sets processed -
-*  45241 MB decompressed
-*  41723 MB compressed
-
-real    0m43.564s
-user    17m2.988s
-sys     0m11.086s
-```
-
-### verify
-
-The following diffs should return nothing:
-
-```
-bin$ gzip -d -k -f ../data/_R1_001.fastq.gz
-bin$ gzip -d -k -f ../data/_R2_001.fastq.gz
-bin$ gzip -d -k -f ../data/_fuzzy_R1_001.fastq.gz
-bin$ gzip -d -k -f ../data/_fuzzy_R2_001.fastq.gz
-bin$ diff ../data/_R1_001.fastq ../data/_fuzzy_R1_001.fastq
-bin$ diff ../data/_R2_001.fastq ../data/_fuzzy_R2_001.fastq
-bin$ diff ../data/_clearBC.log ../data/_fuzzy_clearBC.log 
-bin$ diff ../data/_unclearBC.log ../data/_fuzzy_unclearBC.log 
-```
-
-### clean up
-
-```
-bin$ rm ../data/_*
-```
-
-## Compute nodes on Hábrók
-
-Local storage is on `$TMPDIR`
-
-119 standard nodes with the following components:
-* 128 cores @ 2.45 GHz (two AMD 7763 CPUs)
-* 512 GB memory
-* 3.5 TB internal SSD disk space
-
-24 nodes for multi-node jobs with the following components:
-* 128 cores @ 2.45 GHz (two AMD 7763 CPUs)
-* 512 GB memory
-* 3.5 TB internal SSD disk space
-* 100 Gbps Omni-Path link
-
-4 big memory nodes with the following components:
-* 80 cores @ 2.3 GHz (two Intel Xeon Platinum 8380 CPUs)
-* 4096 GB memory
-* 14 TB internal SSD disk space
-
-2 Interactive GPU nodes (Delivered by Fujitsu in an earlier purchase) with the following components:
-* 24 cores @ 2.4 GHz (two Intel Xeon Gold 6240R CPUs)
-* 768 GB memory
-* 1 Nvidia L40s GPU accelerator card with 48GB RAM
-* 6 GPU nodes with the following components:
-* 64 cores @ 2.6 GHz (two Intel Xeon Platinum 8358 CPUs)
-* 512 GB memory
-
-4 Nvidia A100 GPU accelerator cards with 40 GB RAM
-* 12 TB internal SSD NVMe disk space
-* 100 Gbps Omni-Path link
-
-19 GPU nodes (Delivered by Fujitsu in an earlier purchase) with the following components:
-* 36 cores @ 2.7 GHz (two Intel Xeon Gold 6150 CPUs)
-* 768 GB memory (621 GB used for temporary disk space)
-* 2 Nvidia V100 GPU accelerator cards each with 32 GB RAM
-* 621 GB RAM disk
-
-15 nodes with the following components:
-* 64 cores @ 2.2 GHz (two AMD EPYC 7601 CPUs)
-* 512 GB memory
-* 16 TB internal disk space
-Only accessible by GELIFES users, see GELIFES Partition
-
-1 node with the following components:
-* 64 cores @ 2.1 GHz (two Intel Xeon Gold 6448Y CPUs)
-* 1 TB memory
-* 440 GB internal disk space
-* 4 Nvidia H100 GPU accelerator cards with 80 GB RAM
-
-Only accessible for education purposes in the scope of the Digital Lab project (employee login required)
-
-## Network Hábrók
-
-A 100 Gbps low-latency non-blocking Omni-Path network for 24 compute and 6 GPU nodes<br>
-High bandwidth (100 Gigabit per second)<br>
-Low latency (few microseconds delay before a client starts receiving the message)<br>
-Useful for parallel processing over multiple computers<br>
-Two 25 Gbps Ethernet networks<br>
-Used for accessing the storage areas and for job communication<br>
-Can also be useful to access remote data more quickly<br>
-
-
-## Storage Hábrók
-
-The cluster has 2.5 PB (2562 TB) of formatted storage available. This scratch storage is set up using the Lustre parallel file system.
-50 GB of home directory storage per user
-
-## getCode variants
-
-### min_edit_distance
-
-returns<br>
-* 'correct' on first exact match (handled by caller), assumes unique barcodes.
-* 'corrected' if the best ed is unique
-* 'unclear' otherwise
-
-### demult_fastq
-
-`getCode(I1,codeA,codeC,RX1,QX1,read_type1,13, "A", "C", bc_A, bc_C);`<br>
-code_total_length = 13 =? |bc_A| + 1 + |bc_B|, unique barcode lengths |bc_A| == |bc_C| == 6<br>
-1st min_ed: (I1.RX[|bc_A| + 1, ], bc_A)    // unbounded <br>
-2nd min_ed: (I1.RX[0, |bc_C|], bc_C) <br>
-one base skipped.
-
-returns<br>
-* read_type = "unclear", codeA = codeB = "00" if |I1.RX| < code_total_length
-* read_type = "unclear" if any match is 'unclear', codeA, codeB from `med`
-* read_type = "corrected" if 1st or 2nd match is "corrected", codeA, codeB from `med`
-* read_type = "correct" if 1st and 2nd match are exact
-
-failed code_total_length - test doesn't fit very well into "unclear".
-read_type and codeA, codeB are not always consistent.
-The bc_X maps are used for a fancy way to test 'code == barcode'.
-
-Same for getCode(I2, ...)
 

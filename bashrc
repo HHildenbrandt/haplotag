@@ -1,4 +1,3 @@
 # to be sourced
 
-export PATH=$PATH:/home/hanno/haplotag/bin
-
+export PATH=$PATH:~/haplotag/bin
