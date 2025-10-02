@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
@@ -62,6 +63,11 @@ struct H4 {
 
   explicit H4(const json& Jin, bool verbose) : verbose(verbose), J(Jin) {
     auto root = J.at("root").get<fs::path>();
+    if (root.string().starts_with("~/")) {
+      // this is a bit hacky (and fails on Windows)
+      char* home = getenv("HOME");
+      root = fs::path(home) / root.string().substr(2);
+    }
     range = parse_range(J.at("range").get<std::string>());
     if (range.first >= range.second) throw "invalid range";
 

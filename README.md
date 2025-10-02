@@ -40,7 +40,7 @@ A little tool that behaves similar to `cat`:
 
 ```bash
 fastq_cat --help
-Usage: fastq_cp [OPTIONS] [FILE] ...
+Usage: fastq_cat [OPTIONS] [FILE] ...
 Concatenate ranges from fastq[.gz] files.
 
 With no FILE, or when FILE is -, read standard input.
@@ -110,7 +110,7 @@ Note that the comments are *not* part of the json.
 
 ```json
 {
-    "root": "/home/hanno/haplotag/Pilot-1/H4/", // root data directory 
+    "root": "~/haplotag/Pilot-1/H4/", // root data directory 
     "range": "",          // if not empty, sequence range e.g. "0-10000", 
     "pool_threads": -1,   // -1: number of cores used in thread-pool
     "barcodes": {
@@ -157,4 +157,8 @@ Note that the comments are *not* part of the json.
     }
 }
 ```
+
+## Pilot-1
+
+### Test
 

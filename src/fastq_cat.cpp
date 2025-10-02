@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <iostream>
 #include <iomanip>
 #include <charconv>
@@ -9,7 +10,7 @@
 #include <fastq/writer.hpp>
 
 
-constexpr char usage_msg[] = R"(Usage: fastq_cp [OPTIONS] [FILE] ...
+constexpr char usage_msg[] = R"(Usage: fastq_cat [OPTIONS] [FILE] ...
 Concatenate ranges from fastq[.gz] files.
 
 With no FILE, or when FILE is -, read standard input.
@@ -26,6 +27,16 @@ With no FILE, or when FILE is -, read standard input.
 
 // global thread pool
 std::shared_ptr<hahi::pool_t> gPool;
+
+
+std::filesystem::path expand_home(const std::filesystem::path& path) {
+  // this is a bit hacky (and fails on Windows)
+  if (path.string().starts_with("~/")) {
+    char* home = getenv("HOME");
+    return std::filesystem::path(home) / path.string().substr(2);
+  }
+  return path;
+}
 
 
 std::pair<size_t, size_t> parse_range(std::string_view str) {
@@ -150,14 +161,14 @@ int main(int argc, const char* argv[]) {
       }
       else if (0 == std::strcmp(argv[i], "-o")) {
         if ((i + 1) < argc) {
-          output = argv[++i];
+          output = expand_home(argv[++i]);
         }
       }
       else if (0 == std::strcmp(argv[i], "-")) {
         files.emplace_back("");
       }
-      else if (std::filesystem::exists(argv[i])) {
-        files.emplace_back(argv[i]);
+      else if (std::filesystem::exists(expand_home(argv[i]))) {
+        files.emplace_back(expand_home(argv[i]));
       }
       else {
         std::cerr << "invalid argument '" << argv[i] << "'\n";

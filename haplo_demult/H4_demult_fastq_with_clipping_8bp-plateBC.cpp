@@ -17,9 +17,6 @@
 
 using namespace std;
 
-const std::string nonexist = "AGAGAGAG";
-
-
 string barcode_A="BC_A_H4.txt";
 string barcode_B="BC_B.txt";
 string barcode_C="BC_C_H4.txt";
