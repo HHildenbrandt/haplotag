@@ -51,19 +51,5 @@ add_fastq(fastq_cat)
 add_fastq(fastq_paste)
 
 
-# original
+# original code with minor changes
 add_subdirectory(haplo_demult)
-
-## cuda
-
-#find_package(CUDAToolkit)
-#if (${CUDAToolkit_FOUND})
-#    set(FASTQ_HAS_CUDA 1)
-#endif()
-
-
-#if (${CUDAToolkit_FOUND})
-#    add_subdirectory(fastq_cuda)
-#else()
-#    message(STATUS "CUDAToolkit not found. Skipping CUDA builds")
-#endif()
