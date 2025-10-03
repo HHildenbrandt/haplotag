@@ -32,7 +32,8 @@ bin
 ```
 
 The binaries are statically linked. You can move/copy them to other places.<br>
-For the remainder of this README, we assume ~/haplotag/bin is included in $PATH:
+For the remainder of this README, we assume that we are im `~/haplotag` and ~/haplotag/bin 
+is included in $PATH:
 
 `export PATH=$PATH:~/haplotag/bin`
 
@@ -113,7 +114,7 @@ Note that the comments are *not* part of the json.
 ```json
 {
     "range": "0-1000000", // sequence range, everythin if empty
-    "pool_threads": -1,   // -1: number of cores used in thread-pool
+    "pool_threads": 32,   // number of cores used in thread-pool, -1 for all available cores
     "barcodes": {
         "root": "~/haplotag/Pilot-1",
         "A": {
