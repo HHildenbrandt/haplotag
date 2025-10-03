@@ -25,6 +25,7 @@
 #include <string_view>
 #include <algorithm>
 #include <memory>
+#include <filesystem>
 #define WITH_GZFILEOP
 #include <zlib-ng.h>
 

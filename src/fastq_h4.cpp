@@ -1,4 +1,4 @@
-#include <unistd.h>
+#include <cstdlib>
 #include <iostream>
 #include <filesystem>
 #include <algorithm>
@@ -11,7 +11,7 @@
 #include "device/pool.hpp"
 
 
-constexpr char usage_msg[] = R"(Usage: fastq_H4 JSON_FILE [OPTIONS]...
+constexpr char usage_msg[] = R"(Usage: fastq_h4 JSON_FILE [OPTIONS]...
   -h, --help: show this message.
   -f, --force: force overwrite of output directory.
   -v, --verbose: verbose output.
@@ -30,6 +30,22 @@ using Splitter = fastq::seq_field_splitter<0b1111>;
 // global thread-pool
 // the pool is shared betweeen matching and compressing jobs
 std::shared_ptr<hahi::pool_t> gPool;
+
+
+// hacky way replaces leadiing "~/" in path with the path to HOME 
+fs::path expand_home(const fs::path& path) {
+  // this is a bit hacky
+  if (path.string().starts_with("~/")) {
+    char* home = nullptr;
+#ifdef _WIN32_      
+    home = std::getenv("HOMEPATH");
+#else
+    home = std::getenv("HOME");
+#endif
+    if (home) return std::filesystem::path(home) / path.string().substr(2);
+  }
+  return path;
+}
 
 
 // parse "range" value
@@ -62,12 +78,6 @@ struct H4 {
   static constexpr size_t blk_size = 10000;   // non-sensitive tuneable
 
   explicit H4(const json& Jin, bool verbose) : verbose(verbose), J(Jin) {
-    auto root = J.at("root").get<fs::path>();
-    if (root.string().starts_with("~/")) {
-      // this is a bit hacky (and fails on Windows)
-      char* home = getenv("HOME");
-      root = fs::path(home) / root.string().substr(2);
-    }
     range = parse_range(J.at("range").get<std::string>());
     if (range.first >= range.second) throw "invalid range";
 
@@ -76,10 +86,7 @@ struct H4 {
 
     // barcodes
     auto jbc = J.at("barcodes");
-    auto bc_root = root;  // default: same as /root
-    if (auto bc_root_str = jbc.at("root").get<std::string>(); !bc_root_str.empty()) {
-      bc_root = bc_root_str;  // overwrite if not empty
-    }
+    auto bc_root = expand_home(jbc.at("root").get<fs::path>());
     auto gen_bc = [&](const char* L) {
       auto bc = fastq::barcode_t{bc_root / jbc.at(L).at("file").get<std::string>(), jbc.at(L).at("unclear_tag")};
       optional_json(bc.reset_code_letter(jbc.at(L).at("code_letter").get<std::string>()[0]));
@@ -100,17 +107,17 @@ struct H4 {
 
     // reads
     auto jr = J.at("reads");
-    gz_sub = root.string() + jr.at("subdir").get<std::string>();
-    R1 = Splitter{gz_sub / jr.at("R1").get<std::string>()};
-    R2 = Splitter{gz_sub / jr.at("R2").get<std::string>()};
-    R3 = Splitter{gz_sub / jr.at("R3").get<std::string>()};
-    R4 = Splitter{gz_sub / jr.at("R4").get<std::string>()};
+    gz_root = expand_home(jr.at("root").get<std::string>());
+    R1 = Splitter{gz_root / jr.at("R1").get<std::string>()};
+    R2 = Splitter{gz_root / jr.at("R2").get<std::string>()};
+    R3 = Splitter{gz_root / jr.at("R3").get<std::string>()};
+    R4 = Splitter{gz_root / jr.at("R4").get<std::string>()};
     if (!plate.empty()) {
-      I1 = Splitter{gz_sub / jr.at("I1").get<std::string>()};
+      I1 = Splitter{gz_root / jr.at("I1").get<std::string>()};
     }
     // output
     auto jout = J.at("output");    
-    out_dir = root / jout.at("subdir").get<std::string>();
+    out_root = expand_home(jout.at("root").get<std::string>());
   }
 
   bool has_stagger() const noexcept { return !stagger.empty(); }
@@ -164,15 +171,15 @@ struct H4 {
                   + bc_C.max_code_length();
     cout << "    code_total_length:  " << ctl << '\n';
     cout << "output\n";
-    cout << "    R1:  " << out_dir / J.at("/output/R1"_json_pointer).get<std::string>() << '\n';
-    cout << "    R2:  " << out_dir / J.at("/output/R2"_json_pointer).get<std::string>() << '\n';
+    cout << "    R1:  " << out_root / J.at("/output/R1"_json_pointer).get<std::string>() << '\n';
+    cout << "    R2:  " << out_root / J.at("/output/R2"_json_pointer).get<std::string>() << '\n';
   }
 
   template <bool has_plate>
   void run() {
     // layzy creation of writers
-    R1_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
-    R2_out.reset(new fastq::writer_t<>{out_dir / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
+    R1_out.reset(new fastq::writer_t<>{out_root / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
+    R2_out.reset(new fastq::writer_t<>{out_root / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
 
     size_t i = 0; // sequence number
     // skip head of range
@@ -227,7 +234,7 @@ struct H4 {
       process_matches<has_plate>(m);
     }
     // dump json to output folder for reference
-    auto js = std::ofstream(out_dir / "H4.json");
+    auto js = std::ofstream(out_root / "H4.json");
     js << J.dump();
   }
 
@@ -251,8 +258,8 @@ struct H4 {
   bool verbose = false;
   bool clipping = false;
   std::filesystem::path bc_root;
-  std::filesystem::path gz_sub;
-  std::filesystem::path out_dir;
+  std::filesystem::path gz_root;
+  std::filesystem::path out_root;
   const json& J;
 
 private:
@@ -268,7 +275,7 @@ private:
   template <bool has_plate>
   h4_matches_t blk_match(blks_t&& blks) {
     auto matches = std::vector<h4_match_t>{};
-    // minimum code lengths
+    // expected code lengths
     const size_t scl = stagger.max_code_length();
     const size_t bcl = bc_B.max_code_length();           
     const size_t dcl = bc_D.max_code_length();
@@ -299,6 +306,7 @@ private:
   }
 
   // output processing
+  // creates a lot of redundant data...
   template <bool has_plate>
   void process_matches(const h4_matches_t& h4_matches) {
     const auto& matches = h4_matches.first;
@@ -402,13 +410,13 @@ int main(int argc, const char** argv) {
       h4.dry_run();
       return 0;
     }
-    else if (fs::exists(h4.out_dir)) { 
+    else if (fs::exists(h4.out_root)) { 
       if (!force) {
         throw "Output directory already exists. Consider '-f'";
       }
-      fs::remove_all(h4.out_dir);
+      fs::remove_all(h4.out_root);
     }
-    fs::create_directories(h4.out_dir);
+    fs::create_directories(h4.out_root);
     if (h4.plate.empty()) {
       h4.run<false>();
     }

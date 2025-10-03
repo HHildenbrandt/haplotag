@@ -51,8 +51,9 @@ namespace fastq {
     auto n = bv.length();
     // make outer loop shortest
     if (m > n) { std::swap(m, n); std::swap(a, b); }
-    // remove matching prefixes and suffixes
+    // remove matching prefixes
     while (m && (*a == *b)) { ++a; ++b; --m; --n; }
+    // remove matching suffixes
     while (m && (a[m-1] == b[n-1])) { --m; --n; }
     int D[m + 1];  // single row of the distance matrix
     std::iota(D, D + m + 1, 0);

@@ -1,9 +1,8 @@
 {
-    "root": "~/haplotag/Pilot-1/H4/",
-    "range": "",
+    "range": "0-1000000",
     "pool_threads": -1,
     "barcodes": {
-        "root": "",
+        "root": "~/haplotag/Pilot-1",
         "A": {
             "file": "BC_A_H4.txt",
             "unclear_tag": "A00"
@@ -31,7 +30,7 @@
         }
     },
     "reads": {
-        "subdir": "complete",
+        "root": "~/haplotag/Pilot-1/reads",
         "R1": "R1_001.fastq.gz",
         "R2": "R2_001.fastq.gz",
         "R3": "R3_001.fastq.gz",
@@ -39,7 +38,7 @@
         "I1": "I1_001.fastq.gz"
     },
     "output": {
-        "subdir": "complete/out",
+        "root": "~/haplotag/Pilot-1/reads/out",
         "clipping": true,
         "R1": "R1_001.fastq.gz",
         "R2": "R2_001.fastq.gz"

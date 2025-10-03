@@ -2,6 +2,8 @@
 
 All you need to know about zlib: [Mark Adler's zlib repository](https://github.com/madler/zlib/tree/develop)
 
+## Build
+
 ```bash
 git clone git@github.com:HHildenbrandt/haplotag.git
 
@@ -22,7 +24,7 @@ cd ..
 # binaries can be found in ~/haplotag/bin:
 bin
 ├── fastq_cat
-├── fastq_H4
+├── fastq_h4
 ├── fastq_paste
 ├── H4_demult_fastq_with_clipping_7bp-plateBC
 ├── H4_demult_fastq_with_clipping_8bp-plateBC
@@ -30,7 +32,7 @@ bin
 ```
 
 The binaries are statically linked. You can move/copy them to other places.<br>
-For the remainder of this README, we assume ~/haplotag/bin in included in $PATH:
+For the remainder of this README, we assume ~/haplotag/bin is included in $PATH:
 
 `export PATH=$PATH:~/haplotag/bin`
 
@@ -90,13 +92,13 @@ paste line rangess from fastq[.gz] files.
   -d: delimiter string
 ```
 
-## fastq_H4
+## fastq_h4
 
 `H4_demult_fastq_[...]` replacement.
 
 ```bash
-fastq_H4 --help
-Usage: fastq_H4 JSON_FILE [OPTIONS]...
+fastq_h4 --help
+Usage: fastq_h4 JSON_FILE [OPTIONS]...
   -h, --help: show this message.
   -f, --force: force overwrite of output directory.
   -v, --verbose: verbose output.
@@ -110,11 +112,10 @@ Note that the comments are *not* part of the json.
 
 ```json
 {
-    "root": "~/haplotag/Pilot-1/H4/", // root data directory 
-    "range": "",          // if not empty, sequence range e.g. "0-10000", 
+    "range": "0-1000000", // sequence range, everythin if empty
     "pool_threads": -1,   // -1: number of cores used in thread-pool
     "barcodes": {
-        "root": "",       // directory for the barcode files, same as '/root' if empty
+        "root": "~/haplotag/Pilot-1",
         "A": {
             "file": "BC_A_H4.txt",
             "unclear_tag": "A00"
@@ -142,7 +143,7 @@ Note that the comments are *not* part of the json.
         }
     },
     "reads": {
-        "subdir": "complete",       // path below /root
+        "root": "~/haplotag/Pilot-1/reads", // root data directory 
         "R1": "R1_001.fastq.gz",
         "R2": "R2_001.fastq.gz",
         "R3": "R3_001.fastq.gz",
@@ -150,7 +151,7 @@ Note that the comments are *not* part of the json.
         "I1": "I1_001.fastq.gz"
     },
     "output": {
-        "subdir": "complete/out",   // path below /root
+        "root": "~/haplotag/Pilot-1/reads/out",
         "clipping": true,
         "R1": "R1_001.fastq.gz",
         "R2": "R2_001.fastq.gz"
@@ -160,5 +161,40 @@ Note that the comments are *not* part of the json.
 
 ## Pilot-1
 
+```
+tree Pilot-1/
+Pilot-1/
+├── BC_A_H4.txt
+├── BC_B.txt
+├── BC_C_H4.txt
+├── BC_D.txt
+├── BC_ME.txt
+├── Plate_BC_7.txt
+├── Plate_BC_8.txt
+├── reads
+│   ├── I1_001.fastq.gz -> /scratch/hb-1000G_str/pilot/raw_fastq/Pilot-1_I1_001.fastq.gz
+│   ├── R1_001.fastq.gz -> /scratch/hb-1000G_str/pilot/raw_fastq/Pilot-1_R1_001.fastq.gz
+│   ├── R2_001.fastq.gz -> /scratch/hb-1000G_str/pilot/raw_fastq/LL-GoNL-Pilot-1_I1_001.fastq.gz
+│   ├── R3_001.fastq.gz -> /scratch/hb-1000G_str/pilot/raw_fastq/Pilot-1_R3_001.fastq.gz
+│   └── R4_001.fastq.gz -> /scratch/hb-1000G_str/pilot/raw_fastq/Pilot-1_R4_001.fastq.gz
+└── subset
+    ├── I1_001.fastq.gz
+    ├── R1_001.fastq.gz
+    ├── R2_001.fastq.gz
+    ├── R3_001.fastq.gz
+    └── R4_001.fastq.gz
+```
+
 ### Test
 
+```
+./test/test_pilot-1.sh
+```
+
+### Mini bench
+
+```bash
+mkdir -p Pilot-1/reads/out   # required for H4_demult_... (silent fail otherwise)
+time H4_demult_fastq_with_clipping_8bp-plateBC Pilot-1/reads/ Pilot-1/reads/out/ Pilot-1/ 1000000
+time fastq_h4 src/H4.json -f --replace '{"/range": "0-1000000"}'
+```
