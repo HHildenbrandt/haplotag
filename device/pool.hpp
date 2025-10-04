@@ -62,7 +62,6 @@ namespace hahi {
     int busy() const noexcept { 
       std::lock_guard<std::mutex> _{mutex_};
       int f64 = 0; while (0 == free_list_[f64]) ++f64;
-        
       return num_threads() - (f64 * 64) + std::popcount(free_list_[f64]); 
     }
   
