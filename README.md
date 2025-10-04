@@ -134,7 +134,7 @@ Note that the comments are *not* part of the json.
             "unclear_tag": "D00"
         },
         "plate": {
-            "file": "Plate_BC_8.txt",
+            "file": "Plate_BC_8.txt", // could be empty (no plate)
             "unclear_tag": "P000"
         },
         "stagger": {
@@ -149,13 +149,12 @@ Note that the comments are *not* part of the json.
         "R2": "R2_001.fastq.gz",
         "R3": "R3_001.fastq.gz",
         "R4": "R4_001.fastq.gz",
-        "I1": "I1_001.fastq.gz"
+        "I1": "I1_001.fastq.gz"   // ignored if "/barcodes//plate/file" is empty
     },
     "output": {
         "root": "~/haplotag/Pilot-1/reads/out",
-        "clipping": true,
-        "R1": "R1_001.fastq.gz",
-        "R2": "R2_001.fastq.gz"
+        "R1": "R1_001.fastq.gz",  // could be empty
+        "R2": "R2_001.fastq.gz"   // could be empty
     }
 }
 ```

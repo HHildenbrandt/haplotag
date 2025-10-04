@@ -16,7 +16,6 @@ set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR})
 # zlib-ng options
 set(ZLIB_COMPAT OFF)
 set(WITH_GZFILEOP ON)
-set(WITH_NATIVE_INSTRUCTIONS ON)
 set(ZLIB_ENABLE_TESTS OFF)
 set(ZLIBNG_ENABLE_TESTS OFF)
 set(WITH_GTEST OFF)
@@ -24,17 +23,16 @@ add_subdirectory(zlib-ng)
 
 
 if(MSVC)
-    add_definitions(/DNOMINMAX /DWIN32_LEAN_AND_MEAN /D_CRT_SECURE_NO_WARNINGS /DFLUA_USE_WINDOWS /DFASTQ_WIN32)
+    add_definitions(/DNOMINMAX /DWIN32_LEAN_AND_MEAN /D_CRT_SECURE_NO_WARNINGS /DFASTQ_WIN32)
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
-    add_definitions(-DLUA_USE_MACOSX -DFLUA_USE_MACOS -DFASTQ_DARWIN)
+    add_definitions(-DFASTQ_DARWIN)
 elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
-    add_definitions(-DLUA_USE_LINUX -DFLUA_USE_LINUX -DFASTQ_LINUX)
+    add_definitions(-DFASTQ_LINUX)
 endif()
 
 # fastq binaries
 macro(add_fastq name)
     add_executable(${name} ${CMAKE_SOURCE_DIR}/src/${name}.cpp)
-    target_compile_definitions(${name} PRIVATE FASTQ_HAS_CUDA=${FASTQ_HAS_CUDA})
     target_include_directories(${name} 
         PRIVATE ${CMAKE_SOURCE_DIR}
         PRIVATE ${CMAKE_SOURCE_DIR}/zlib-ng

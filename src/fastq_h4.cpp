@@ -83,7 +83,7 @@ struct H4 {
     if (range.first >= range.second) throw "invalid range";
 
     // create thread pool
-    gPool.reset( new hahi::pool_t(J.at("pool_threads").get<unsigned>()));
+    gPool.reset( new hahi::pool_t(120/*J.at("pool_threads").get<unsigned>()*/));
 
     // barcodes
     auto jbc = J.at("barcodes");
@@ -117,7 +117,9 @@ struct H4 {
       I1 = Splitter{gz_root / jr.at("I1").get<std::string>()};
     }
     // output
-    auto jout = J.at("output");    
+    auto jout = J.at("output"); 
+    r1_out = !jout.at("R1").get<std::string>().empty();  
+    clipping = !jout.at("R2").get<std::string>().empty();
     out_root = expand_home(jout.at("root").get<std::string>());
   }
 
@@ -172,43 +174,39 @@ struct H4 {
                   + bc_C.max_code_length();
     cout << "    code_total_length:  " << ctl << '\n';
     cout << "output\n";
-    cout << "    R1:  " << out_root / J.at("/output/R1"_json_pointer).get<std::string>() << '\n';
-    cout << "    R2:  " << out_root / J.at("/output/R2"_json_pointer).get<std::string>() << '\n';
+    cout << "    R1: " << (r1_out ? out_root / J.at("/output/R1"_json_pointer).get<std::string>() : "NA") << '\n';
+    cout << "    R2: " << (clipping ? out_root / J.at("/output/R2"_json_pointer).get<std::string>() : "NA (no clipping)") << '\n';
   }
 
+  // feeding the work pipeline
   template <bool has_plate>
   void run() {
     // layzy creation of writers
-    R1_out.reset(new fastq::writer_t<>{out_root / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
-    R2_out.reset(new fastq::writer_t<>{out_root / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
+    if (r1_out) R1_out.reset(new fastq::writer_t<>{out_root / J.at("/output/R1"_json_pointer).get<std::string>(), gPool});
+    if (clipping) R2_out.reset(new fastq::writer_t<>{out_root / J.at("/output/R2"_json_pointer).get<std::string>(), gPool});
+    
+    std::vector<Splitter*> RS = { &R1, &R2, &R3, &R4 };
+    if constexpr (has_plate) RS.push_back(&I1);
 
     size_t i = 0; // sequence number
     // skip head of range
     for (; i < range.first; ++i) {
-      for (auto* R : { &R1, &R2, &R3, &R4, &I1 }) {
+      for (auto* R : RS) {
         if (R->eof()) break;
         R->operator()();
       }
     }
     if (i != range.first) throw "range exceeds number of reads";
 
-    // work pipeline
     auto match_queue = std::deque<std::future<h4_matches_t>>{};
     bool any_eof = false;
     for (; !any_eof && (i < range.second); i += blk_size) {
       // collect block of reads
       auto blks = blks_t{};
       const auto n = std::min(range.second - i, blk_size);  // sequences to read
-      if constexpr (has_plate) {
-        for (auto* R : { &R1, &R2, &R3, &R4, &I1 }) {
-          blks.emplace_back(R->operator()(n));
-          any_eof |= R->eof();
-        }
-      } else {
-        for (auto* R : { &R1, &R2, &R3, &R4 }) {
-          blks.emplace_back(R->operator()(n));
-          any_eof |= R->eof();
-        }
+      for (auto* R : RS) {
+        blks.emplace_back(R->operator()(n));
+        any_eof |= R->eof();
       }
       // check if all read files had equal sequences
       const auto exp = blks[0].size();
@@ -258,6 +256,7 @@ struct H4 {
 
   bool verbose = false;
   bool clipping = false;
+  bool r1_out = false;
   std::filesystem::path bc_root;
   std::filesystem::path gz_root;
   std::filesystem::path out_root;
@@ -276,12 +275,13 @@ private:
   template <bool has_plate>
   h4_matches_t blk_match(blks_t&& blks) {
     auto matches = std::vector<h4_match_t>{};
+    matches.reserve(blks.size());
     // expected code lengths
     const size_t scl = stagger.max_code_length();
     const size_t bcl = bc_B.max_code_length();           
     const size_t dcl = bc_D.max_code_length();
     const size_t ccl = bc_C.max_code_length();  
-    const size_t pcl = plate.max_code_length();   // 0 if empty
+    const size_t pcl = plate.max_code_length();   // always defined, 0 if empty
     std::string RX{};
     for (size_t i = 0; i < blks[0].size(); ++i) {
       auto& m = matches.emplace_back();
@@ -296,9 +296,11 @@ private:
       m.c = fastq::min_edit_distance(fastq::max_substr(RX, bcl + dcl + acl + 2, ccl), ccl, bc_C);
       if constexpr (has_plate) {
         m.p = fastq::min_edit_distance(fastq::max_substr(blks[I1_][i][1], 0, pcl), pcl, plate);
+        m.any_invalid = (m.p.rt == fastq::ReadType::invalid);
+        m.any_unclear = (m.p.rt == fastq::ReadType::unclear);
       }
       // summary
-      for (fastq::ReadType rt : { m.s.rt, m.a.rt, m.b.rt, m.c.rt, m.d.rt, m.p.rt }) {
+      for (fastq::ReadType rt : { m.s.rt, m.a.rt, m.b.rt, m.c.rt, m.d.rt }) {
         m.any_invalid |= (rt == fastq::ReadType::invalid);
         m.any_unclear |= (rt == fastq::ReadType::unclear);
       }
@@ -307,55 +309,76 @@ private:
   }
 
   // output processing
-  // creates a lot of redundant data...
-  template <bool has_plate>
-  void process_matches(const h4_matches_t& h4_matches) {
+  template <bool has_plate, bool has_clipping>
+  void do_process_matches(const h4_matches_t& h4_matches,
+                          auto put,
+                          auto puts) {
     const auto& matches = h4_matches.first;
     const auto& blks = h4_matches.second;
-    auto put2 = [this](fastq::str_view str) { R1_out->put(str); R2_out->put(str); };     // w/o newline
-    auto puts2 = [this](fastq::str_view str) { R1_out->puts(str); R2_out->puts(str); };  // w newline
-    const size_t pcl = plate.max_code_length();   // 0 if empty
+    const size_t pcl = plate.max_code_length();   // always defined, 0 if empty
     for (size_t i = 0; i < blks[0].size(); ++i) {
       const auto& match = matches[i];
 
       // compile comments
       const auto name = blks[R1_][i][0];
-      put2(name.substr(0, name.find_first_of(" \t")));
-      put2("\tBX:Z:");
-      put2(bc_A[match.a.idx].tag);
-      put2(bc_C[match.c.idx].tag);
-      put2(bc_B[match.b.idx].tag);
-      put2(bc_D[match.d.idx].tag);
+      put(name.substr(0, name.find_first_of(" \t")));
+      put("\tBX:Z:");
+      put(bc_A[match.a.idx].tag);
+      put(bc_C[match.c.idx].tag);
+      put(bc_B[match.b.idx].tag);
+      put(bc_D[match.d.idx].tag);
       if constexpr (has_plate) {
-        put2("-");
-        put2(plate[match.p.idx].tag);
+        put("-");
+        put(plate[match.p.idx].tag);
       }
-      put2("\tRX:Z:");
-      put2(blks[R2_][i][1]);
-      put2(blks[R3_][i][1]);
+      put("\tRX:Z:");
+      put(blks[R2_][i][1]);
+      put(blks[R3_][i][1]);
       if constexpr (has_plate) {
-        put2("+");
-        put2(blks[I1_][i][1]);
+        put("+");
+        put(blks[I1_][i][1]);
       }
-      put2("\tQX:Z:");
-      put2(blks[R2_][i][3]);
-      put2(blks[R3_][i][3]);
-      put2("+");
-      put2(blks[I1_][i][3]);
-      puts2({});
+      put("\tQX:Z:");
+      put(blks[R2_][i][3]);
+      put(blks[R3_][i][3]);
+      if constexpr (has_plate) {
+        put("+");
+        put(blks[I1_][i][3]);
+      }
+      puts({});
 
       // copy over unchanged fields to R1_out
       for (auto j : {1,2,3}) R1_out->puts(blks[R1_][i][j]);
 
-      // copy clipped fields to R2_out
-      auto clip_size = stagger.max_code_length() + 1;
-      clip_size += (match.a.rt == fastq::ReadType::unclear) 
-                   ? bc_A.max_code_length()
-                   : bc_A[match.a.idx].code.length();
-      R2_out->puts(fastq::max_substr(blks[R4_][i][1], clip_size));
-      R2_out->puts(blks[R4_][i][2]);
-      R2_out->puts(fastq::max_substr(blks[R4_][i][3], clip_size));
-      int dummy = 0;
+      if constexpr (has_clipping) {
+        // copy clipped fields to R2_out
+        auto clip_size = stagger.max_code_length() + 1;
+        clip_size += (match.a.rt == fastq::ReadType::unclear) 
+                    ? bc_A.max_code_length()
+                    : bc_A[match.a.idx].code.length();
+        R2_out->puts(fastq::max_substr(blks[R4_][i][1], clip_size));
+        R2_out->puts(blks[R4_][i][2]);
+        R2_out->puts(fastq::max_substr(blks[R4_][i][3], clip_size));
+      }
+    }
+  }
+
+  template <bool has_plate>
+  void process_matches(const h4_matches_t& h4_matches) {
+    if (clipping) {
+      // creates a lot of redundant data...
+      do_process_matches<has_plate, true>(
+        h4_matches, 
+        [this](fastq::str_view str) { R1_out->put(str); R2_out->put(str); },
+        [this](fastq::str_view str) { R1_out->puts(str); R2_out->puts(str); }
+      );
+    }                                   
+    else {
+      do_process_matches<has_plate, false>(
+        h4_matches, 
+        [this](fastq::str_view str) { R1_out->put(str); },
+        [this](fastq::str_view str) { R1_out->puts(str); }
+      );
     }
   }
 };
@@ -411,7 +434,10 @@ int main(int argc, const char** argv) {
       h4.dry_run();
       return 0;
     }
-    else if (fs::exists(h4.out_root)) { 
+    if (!(h4.clipping || h4.r1_out)) {
+      throw ("Neigther R1 nor R2 output specified\n. Bailing out.");
+    }
+    if (fs::exists(h4.out_root)) { 
       if (!force) {
         throw "Output directory already exists. Consider '-f'";
       }

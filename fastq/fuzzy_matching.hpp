@@ -34,7 +34,7 @@ namespace fastq {
       auto tmp = std::exchange(D[0], i);  // tmp <- L(i-1,0), L(i,0) <- i
       for (auto j = 1; j <= m; ++j) {
         if (a[j - 1] != bi) {
-          tmp = std::min(D[j], std::min(D[j - 1], tmp)) + 1;
+          tmp = std::min(D[j - 1], std::min(D[j], tmp)) + 1;
         }
         std::swap(tmp, D[j]);   // d[j] <- L(i,j)
       }
@@ -59,11 +59,11 @@ namespace fastq {
     std::iota(D, D + m + 1, 0);
     for (auto i = 1; i <= n; ++i) {
       const auto bi = b[i - 1];
-      auto dmin = D[0];
       auto tmp = std::exchange(D[0], i);  // tmp <- L(i-1,0), L(i,0) <- i
+      auto dmin = tmp;    // D[0]
       for (auto j = 1; j <= m; ++j) {
         if (a[j - 1] != bi) {
-          tmp = std::min(D[j], std::min(D[j - 1], tmp)) + 1;
+          tmp = std::min(D[j - 1], std::min(D[j], tmp)) + 1;
         }
         dmin = std::min(dmin, tmp);
         std::swap(tmp, D[j]);   // d[j] <- L(i,j)
@@ -74,7 +74,7 @@ namespace fastq {
     }
     return D[m];
   }
-  
+ 
 
   enum ReadType{
     invalid,        // code length violation
