@@ -29,42 +29,54 @@
 #include <vector>
 #include <memory>
 #include <algorithm>     // std::clamp
+#include <bitset>
 #include "device.hpp"
 
 
 namespace hahi {
 
-  // models a simple thread pool.
+  // models a simple fixed-sized thread pool.
   //
   // provides limited concurrent forward progress guarantees!
   // avoid infinite tasks as they will dead-lock the whole pool eventually!
   //
   class pool_t {
   public:
-    static constexpr unsigned max_threads = 256;   // current 'limitation'
+    // arbitrary limit in multiplies of 64
+    static constexpr unsigned max_threads = 256;
 
+    // creates pool with num_threads clamped to a hardware concurrency
     explicit pool_t(unsigned num_threads = -1) 
     : sem_{std::clamp(num_threads, 1u, std::thread::hardware_concurrency())} {
       num_threads = std::clamp(num_threads, 1u, std::thread::hardware_concurrency());
-      if (num_threads > 256) {
-        throw std::runtime_error("Dude, what are you running? More than 256 threads are not supported yet");
+      if (num_threads > max_threads) {
+        throw std::runtime_error("Number of threads exceeds implementation limit");
       }
-      const auto n64 = num_threads >> 6;
-      for (auto f64 = 0; f64 < n64; ++f64) free_list_[f64] = -1;
-      free_list_[n64] = ((num_threads - (n64 << 6)) == 64) ? uint64_t(-1) : ((1ull << (num_threads - (n64 << 6))) - 1);
+      auto fit = free_list_;
+      auto f64 = num_threads;
+      for (; f64 >= 64; f64 -= 64, ++fit) *fit = -1;
+      if (f64) *fit = (1ull << f64) - 1;
       for (unsigned i = 0; i < num_threads; ++i) {
         devices_.emplace_back(new device_t{1 + 1});   // 1 work + 1 release task
       }
     }
 
     unsigned num_threads() const noexcept { return devices_.size(); }
-    
-    int busy() const noexcept { 
+
+    // returns number of available jobs
+    int avail() const noexcept { 
       std::lock_guard<std::mutex> _{mutex_};
-      int f64 = 0; while (0 == free_list_[f64]) ++f64;
-      return num_threads() - (f64 * 64) + std::popcount(free_list_[f64]); 
+      int bits = 0;
+      for (size_t i = 0; i < sizeof(free_list_); ++i) {
+        bits += std::popcount(free_list_[i]);
+      }
+      return bits; 
     }
   
+    // returns number of running jobs
+    int busy() const noexcept { return num_threads() - avail(); }
+
+    // submits job to pool.
     // returns std::future
     template <typename Fun, typename... Args>
     auto async(Fun&& fun, Args&&...args) const {
@@ -89,7 +101,7 @@ namespace hahi {
   private:
     mutable std::counting_semaphore<> sem_;
     mutable std::mutex mutex_;
-    mutable uint64_t free_list_[4];    // bitset
+    mutable uint64_t free_list_[max_threads >> 6];    // bitset
     std::vector<std::unique_ptr<device_t>> devices_;
   };
 

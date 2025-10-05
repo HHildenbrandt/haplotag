@@ -198,3 +198,28 @@ mkdir -p Pilot-1/reads/out   # required for H4_demult_... (silent fail otherwise
 time H4_demult_fastq_with_clipping_8bp-plateBC Pilot-1/reads/ Pilot-1/reads/out/ Pilot-1/ 1000000
 time fastq_h4 src/H4.json -f --replace '{"/range": "0-1000000"}'
 ```
+
+### More bench marks
+
+Reads from 20GiB USB nvme drive
+Writes to local PCIe 4.0 nvme drive
+
+```
+fastq_ha scaling, (32 pool threads)
+
+sequences       time
+1.000.000       0m1.549s
+10.000.000      0m13.176s
+100.000.000     2m12.807s
+1.000.000.000   22m20.853s
+
+fastq_ha scaling with pool threads
+
+pool_threads    time
+4               1m7.126s
+8               0m33.827s
+16              0m20.724s
+24              0m15.354s
+32              0m13.387s
+```
+

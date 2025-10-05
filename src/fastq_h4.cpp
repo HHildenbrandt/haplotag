@@ -83,7 +83,7 @@ struct H4 {
     if (range.first >= range.second) throw "invalid range";
 
     // create thread pool
-    gPool.reset( new hahi::pool_t(120/*J.at("pool_threads").get<unsigned>()*/));
+    gPool.reset( new hahi::pool_t(J.at("pool_threads").get<unsigned>()));
 
     // barcodes
     auto jbc = J.at("barcodes");

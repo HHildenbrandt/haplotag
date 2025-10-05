@@ -1,6 +1,6 @@
 {
     "range": "0-100000",
-    "pool_threads": 32,
+    "pool_threads": -1,
     "barcodes": {
         "root": "~/haplotag/Pilot-1",
         "A": {
