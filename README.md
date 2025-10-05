@@ -199,7 +199,7 @@ time H4_demult_fastq_with_clipping_8bp-plateBC Pilot-1/reads/ Pilot-1/reads/out/
 time fastq_h4 src/H4.json -f --replace '{"/range": "0-1000000"}'
 ```
 
-### More bench marks
+### More bench marks (./test/bench.sh)
 
 Reads from 20GiB USB nvme drive
 Writes to local PCIe 4.0 nvme drive
