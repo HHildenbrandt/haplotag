@@ -191,15 +191,7 @@ Pilot-1/
 ./test/test_pilot-1.sh
 ```
 
-### Mini bench
-
-```bash
-mkdir -p Pilot-1/reads/out   # required for H4_demult_... (silent fail otherwise)
-time H4_demult_fastq_with_clipping_8bp-plateBC Pilot-1/reads/ Pilot-1/reads/out/ Pilot-1/ 1000000
-time fastq_h4 src/H4.json -f --replace '{"/range": "0-1000000"}'
-```
-
-### More bench marks (./test/bench.sh)
+### Mini bench (./test/bench.sh)
 
 Reads from 20GiB USB nvme drive
 Writes to local PCIe 4.0 nvme drive
