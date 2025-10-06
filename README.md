@@ -108,7 +108,7 @@ Usage: fastq_h4 JSON_FILE [OPTIONS]...
   --dry: dry-run.
 ```
 
-You can find an example `JSON_FILE` in `~\haplotag\src.<br>
+You can find an example `JSON_FILE` in `~\haplotag\src`.<br>
 Note that the comments are *not* part of the json.
 
 ```json
@@ -153,8 +153,8 @@ Note that the comments are *not* part of the json.
     },
     "output": {
         "root": "~/haplotag/Pilot-1/reads/out",
-        "R1": "R1_001.fastq.gz",  // could be empty
-        "R2": "R2_001.fastq.gz"   // could be empty
+        "R1": "R1_001.fastq.gz",  // could be empty (constructable from /reads/R4 and /output/R2)
+        "R2": "R2_001.fastq.gz"   // could be empty (no clipping)
     }
 }
 ```
@@ -184,6 +184,9 @@ Pilot-1/
     ├── R3_001.fastq.gz
     └── R4_001.fastq.gz
 ```
+
+Note thet the files under `Pilot-1/reads/' are symbolic links to files that
+are *not* included* into the repository. 
 
 ### Test
 
