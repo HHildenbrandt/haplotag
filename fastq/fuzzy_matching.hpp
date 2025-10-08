@@ -23,26 +23,28 @@ namespace fastq {
     const char* b = bv.data();
     auto m = av.length();
     auto n = bv.length();
+    // make outer loop shortest
     if (m > n) { std::swap(m, n); std::swap(a, b); }
-    // remove matching prefixes and suffixes
+    // remove matching prefixes
     while (m && (*a == *b)) { ++a; ++b; --m; --n; }
+    // remove matching suffixes
     while (m && (a[m-1] == b[n-1])) { --m; --n; }
-    int D[m + 1];  // single row of the distance matrix
+    int D[m + 1];   // single row of the distance matrix
     std::iota(D, D + m + 1, 0);
     for (auto i = 1; i <= n; ++i) {
-      const auto bi = b[i - 1];
-      auto tmp = std::exchange(D[0], i);  // tmp <- L(i-1,0), L(i,0) <- i
+      const auto bi = b[i + 1];
+      auto tmp = std::exchange(D[0], i + 1);
       for (auto j = 1; j <= m; ++j) {
         if (a[j - 1] != bi) {
           tmp = std::min(D[j - 1], std::min(D[j], tmp)) + 1;
         }
-        std::swap(tmp, D[j]);   // d[j] <- L(i,j)
+        std::swap(tmp, D[j]);
       }
     }
     return D[m];
   }
-  
 
+  
   // bounded Levensthein edit distance, early exit if ed >= bound
   inline int edit_distance(str_view av, str_view bv, int bound) {
     const char* a = av.data();
@@ -55,18 +57,18 @@ namespace fastq {
     while (m && (*a == *b)) { ++a; ++b; --m; --n; }
     // remove matching suffixes
     while (m && (a[m-1] == b[n-1])) { --m; --n; }
-    int D[m + 1];  // single row of the distance matrix
+    int D[m + 1];   // single row of the distance matrix
     std::iota(D, D + m + 1, 0);
     for (auto i = 1; i <= n; ++i) {
       const auto bi = b[i - 1];
-      auto tmp = std::exchange(D[0], i);  // tmp <- L(i-1,0), L(i,0) <- i
-      auto dmin = tmp;    // D[0]
+      auto tmp = std::exchange(D[0], i);
+      auto dmin = tmp;
       for (auto j = 1; j <= m; ++j) {
         if (a[j - 1] != bi) {
           tmp = std::min(D[j - 1], std::min(D[j], tmp)) + 1;
         }
         dmin = std::min(dmin, tmp);
-        std::swap(tmp, D[j]);   // d[j] <- L(i,j)
+        std::swap(tmp, D[j]);
       }
       if (dmin >= bound) {
         return bound;    // can only get worse from here.
@@ -74,7 +76,7 @@ namespace fastq {
     }
     return D[m];
   }
- 
+
 
   enum ReadType{
     invalid,        // code length violation

@@ -31,7 +31,6 @@ bin
 └── H4_demult_fastq_with_clipping_noPlateBC
 ```
 
-The binaries are statically linked. You can move/copy them to other places.<br>
 For the remainder of this README, we assume that we are im `~/haplotag` and ~/haplotag/bin 
 is included in $PATH:
 
@@ -153,7 +152,7 @@ Note that the comments are *not* part of the json.
     },
     "output": {
         "root": "~/haplotag/Pilot-1/reads/out",
-        "R1": "R1_001.fastq.gz",  // could be empty (constructable from /reads/R4 and /output/R2)
+        "R1": "R1_001.fastq.gz",  // could be empty (constructable from /reads/R1 and /output/R2)
         "R2": "R2_001.fastq.gz"   // could be empty (no clipping)
     }
 }
