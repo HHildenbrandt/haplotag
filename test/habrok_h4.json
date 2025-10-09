@@ -1,0 +1,46 @@
+{
+    "range": "0-10000000",
+    "pool_threads": 64,
+    "barcodes": {
+        "root": "~/haplotag/Pilot-1",
+        "A": {
+            "file": "BC_A_H4.txt",
+            "unclear_tag": "A00"
+        },
+        "B": {
+            "file": "BC_B.txt",
+            "unclear_tag": "B00"
+        },
+        "C": {
+            "file": "BC_C_H4.txt",
+            "unclear_tag": "C00"
+        },
+        "D": {
+            "file": "BC_D.txt",
+            "unclear_tag": "D00"
+        },
+        "plate": {
+            "file": "Plate_BC_8.txt",
+            "unclear_tag": "P000"
+        },
+        "stagger": {
+            "file": "BC_ME.txt",
+            "unclear_tag": "S00",
+            "sort_by_tag": true
+        }
+    },
+    "reads": {
+        "root": "~/haplotag/Pilot-1/reads",
+        "R1": "R1_001.fastq.gz",
+        "R2": "R2_001.fastq.gz",
+        "R3": "R3_001.fastq.gz",
+        "R4": "R4_001.fastq.gz",
+        "I1": "I1_001.fastq.gz"
+    },
+    "output": {
+        "root": "/scratch/hb-1000G_str/pilot/h4_bench_out",
+        "clipping": true,
+        "R1": "R1_001.fastq.gz",
+        "R2": "R2_001.fastq.gz"
+    }
+}
