@@ -9,4 +9,4 @@
 module load GCC/13      # c++ stdlib
 export PATH=$PATH:~/haplotag/bin
 
-srun fastq_h4 ~/haplotag/src/H4.json -f --replace '{"/output/root": "/scratch/hb-1000G_str/pilot/h4_bench_out" }'
+srun ~/haplotag/test/habrok_bench.sh
