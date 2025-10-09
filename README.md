@@ -193,7 +193,7 @@ are *not* included* into the repository.
 ./test/test_pilot-1.sh
 ```
 
-### Mini bench (./test/bench.sh)
+### Mini bench local (./test/bench.sh)
 
 Reads from 20GiB USB nvme drive
 Writes to local PCIe 4.0 nvme drive
@@ -220,3 +220,29 @@ fastq_ha scaling with pool threads (10.000.000 sequences)
   32              0m13.387s
 ```
 
+### Mini bench habrok (./test/habrok_bench.sh)
+
+Job file `./test/habrok_bench_job.sh`
+Reads from `/scratch`
+Writes to `/scratch`
+
+```
+fastq_ha scaling, (64 pool threads)
+  sequences       time
+  1.000.000       0m2.642s
+  10.000.000      0m18.466s
+  100.000.000     2m29.809s
+  1.000.000.000   26m23.378s
+
+fastq_ha scaling with pool threads (10.000.000 sequences)
+  pool_threads    time
+  4               2m27.253s
+  8               1m13.532s
+  16              0m37.655s
+  24              0m25.409s
+  32              0m19.481s
+  64              0m17.021s   (not worth it)
+```
+
+Hm, this looks ok. Quite a bit slower than local but not too bad...<br>
+`--cpus-per-task=64` is overkill of course (and took 30m to be scheduled).<br>

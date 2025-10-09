@@ -2,7 +2,7 @@
 
 #SBATCH --job-name h4_bench
 #SBATCH --output=%j.log
-#SBATCH --mem=16GB
+#SBATCH --mem=32GB
 #SBATCH --cpus-per-task=64
 #SBATCH --time=01:00:00
 
