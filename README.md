@@ -246,3 +246,6 @@ fastq_ha scaling with pool threads (10.000.000 sequences)
 
 Hm, this looks ok. Quite a bit slower than local but not too bad...<br>
 `--cpus-per-task=64` is overkill of course (and took 30m to be scheduled).<br>
+ 
+ If the `1000G` in `/scratch/hb-1000G_str` stands for a 1TB quota, we can't run
+ the full data set (7.008.756.990 seqeunces) on this data store.
