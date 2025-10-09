@@ -211,7 +211,7 @@ fastq_ha scaling, (32 pool threads)
   100.000.000     2m12.807s
   1.000.000.000   22m20.853s
 
-fastq_ha scaling with pool threads
+fastq_ha scaling with pool threads (10.000.000 sequences)
   pool_threads    time
   4               1m7.126s
   8               0m33.827s

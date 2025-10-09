@@ -88,7 +88,7 @@ namespace fastq {
 
 
   struct match_t {
-    int idx = 0;          // index finto bc, 0 if read_type == unclear
+    int idx = 0;          // index into bc, 0 if read_type == unclear
     int ed = -1;          // edit distance
     ReadType rt = ReadType::invalid;
   };
@@ -114,6 +114,12 @@ namespace fastq {
       }      
     }
     return { .idx = (rt == ReadType::unclear) ? 0 : idx, .ed = min_ed, .rt = rt };
+  }
+  
+
+  // min_edit_distance, assuming code_length = bc.max_code_length()
+  inline match_t min_edit_distance(str_view RX, const barcode_t& bc) {
+    return min_edit_distance(RX, bc.max_code_length(), bc);
   }
   
 }
