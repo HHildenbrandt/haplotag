@@ -29,19 +29,21 @@ namespace fastq {
     while (m && (*a == *b)) { ++a; ++b; --m; --n; }
     // remove matching suffixes
     while (m && (a[m-1] == b[n-1])) { --m; --n; }
-    int D[m + 1];   // single row of the distance matrix
-    std::iota(D, D + m + 1, 0);
-    for (auto i = 1; i <= n; ++i) {
-      const auto bi = b[i + 1];
-      auto tmp = std::exchange(D[0], i + 1);
-      for (auto j = 1; j <= m; ++j) {
-        if (a[j - 1] != bi) {
-          tmp = std::min(D[j - 1], std::min(D[j], tmp)) + 1;
-        }
-        std::swap(tmp, D[j]);
+    // two lines of the distance matrix:
+    alignas(64) int D0[m + 1];
+    alignas(64) int D1[m + 1];
+    std::iota(D0, D0 + m + 1, 0);
+    auto* d0 = D0;
+    auto* d1 = D1;
+    for (auto i = 0; i < n; ++i) {
+      const auto bi = b[i];
+      d1[0] = i + 1;
+      for (auto j = 0; j < m; ++j) {
+        d1[j + 1] = std::min(d0[j] + (a[j] != bi), std::min(d0[j + 1], d1[j]) + 1);
       }
+      std::swap(d0, d1);
     }
-    return D[m];
+    return d0[m];
   }
 
   
@@ -57,24 +59,26 @@ namespace fastq {
     while (m && (*a == *b)) { ++a; ++b; --m; --n; }
     // remove matching suffixes
     while (m && (a[m-1] == b[n-1])) { --m; --n; }
-    int D[m + 1];   // single row of the distance matrix
-    std::iota(D, D + m + 1, 0);
-    for (auto i = 1; i <= n; ++i) {
-      const auto bi = b[i - 1];
-      auto tmp = std::exchange(D[0], i);
-      auto dmin = tmp;
-      for (auto j = 1; j <= m; ++j) {
-        if (a[j - 1] != bi) {
-          tmp = std::min(D[j - 1], std::min(D[j], tmp)) + 1;
-        }
-        dmin = std::min(dmin, tmp);
-        std::swap(tmp, D[j]);
+    // two lines of the distance matrix:
+    alignas(64) int D0[m + 1];
+    alignas(64) int D1[m + 1];
+    std::iota(D0, D0 + m + 1, 0);
+    auto* d0 = D0;
+    auto* d1 = D1;
+    for (auto i = 0; i < n; ++i) {
+      const auto bi = b[i];
+      d1[0] = i + 1;
+      auto dmin = d0[0];
+      for (auto j = 0; j < m; ++j) {
+        d1[j + 1] = std::min(d0[j] + (a[j] != bi), std::min(d0[j + 1], d1[j]) + 1);
+        dmin = std::min(dmin, d1[j + 1]);
       }
-      if (dmin >= bound) {
-        return bound;    // can only get worse from here.
+      if (dmin > bound) {
+        return bound;   // can only get worse from here
       }
+      std::swap(d0, d1);
     }
-    return D[m];
+    return d0[m];
   }
 
 
